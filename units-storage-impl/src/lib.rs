@@ -1,18 +1,15 @@
 pub mod lock_manager;
 pub mod storage_traits;
-pub mod wal;
 
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
 // Re-export the main types for convenience
 pub use storage_traits::{
-    UnitsProofIterator, UnitsReceiptIterator, UnitsStateProofIterator,
-    UnitsStorage, UnitsStorageIterator, UnitsStorageProofEngine,
-    TransactionReceiptStorage, UnitsWriteAheadLog, WALEntry,
+    ObjectIterator, ProofIterator, ReceiptIterator, StateProofIterator,
+    UnitsStorage,
 };
 
-pub use wal::FileWriteAheadLog;
 
 // Re-export lock manager implementations
 #[cfg(feature = "sqlite")]

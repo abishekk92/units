@@ -12,8 +12,8 @@ use units_core::transaction::{
 use units_proofs::SlotNumber;
 
 use crate::runtime::Runtime;
-use crate::runtime_backend::RuntimeBackendManager;
-use units_storage_impl::storage_traits::{TransactionReceiptStorage, UnitsReceiptIterator};
+use crate::runtime_backend::{RuntimeBackendManager, SimpleRuntimeBackend};
+use units_storage_impl::storage_traits::{ReceiptIterator};
 
 /// Mock implementation of the Runtime trait for testing purposes
 pub struct MockRuntime {
@@ -33,7 +33,7 @@ impl MockRuntime {
     /// Create a new MockRuntime
     pub fn new() -> Self {
         // Create a runtime backend manager with default backends
-        let backend_manager = RuntimeBackendManager::with_default_backends();
+        let backend_manager = SimpleRuntimeBackend::new();
 
         Self {
             transactions: HashMap::new(),
@@ -278,7 +278,7 @@ impl Clone for MockRuntime {
             transactions: self.transactions.clone(),
             receipts: self.receipts.clone(),
             current_slot: self.current_slot,
-            backend_manager: RuntimeBackendManager::with_default_backends(), // Create a new manager with same backends
+            backend_manager: SimpleRuntimeBackend::new(), // Create a new simplified backend
             objects: self.objects.clone(),
         }
     }
@@ -327,10 +327,9 @@ impl Iterator for InMemoryReceiptIterator {
     }
 }
 
-impl UnitsReceiptIterator for InMemoryReceiptIterator {}
 
-impl TransactionReceiptStorage for InMemoryReceiptStorage {
-    fn store_receipt(&self, receipt: &TransactionReceipt) -> Result<(), StorageError> {
+impl InMemoryReceiptStorage {
+    pub fn store_receipt(&self, receipt: &TransactionReceipt) -> Result<(), StorageError> {
         // Store the receipt by transaction hash
         {
             let mut receipts_by_hash = self.receipts_by_hash.lock().unwrap();
@@ -360,7 +359,7 @@ impl TransactionReceiptStorage for InMemoryReceiptStorage {
         Ok(())
     }
 
-    fn get_receipt(&self, hash: &[u8; 32]) -> Result<Option<TransactionReceipt>, StorageError> {
+    pub fn get_receipt(&self, hash: &[u8; 32]) -> Result<Option<TransactionReceipt>, StorageError> {
         let receipts_by_hash = self.receipts_by_hash.lock().unwrap();
 
         if let Some(receipt) = receipts_by_hash.get(hash) {
@@ -370,7 +369,7 @@ impl TransactionReceiptStorage for InMemoryReceiptStorage {
         }
     }
 
-    fn get_receipts_for_object(&self, id: &UnitsObjectId) -> Box<dyn UnitsReceiptIterator + '_> {
+    pub fn get_receipts_for_object(&self, id: &UnitsObjectId) -> ReceiptIterator {
         // Get all transaction hashes for this object
         let transaction_hashes = {
             let receipts_by_object = self.receipts_by_object.lock().unwrap();
@@ -400,7 +399,7 @@ impl TransactionReceiptStorage for InMemoryReceiptStorage {
         })
     }
 
-    fn get_receipts_in_slot(&self, slot: SlotNumber) -> Box<dyn UnitsReceiptIterator + '_> {
+    pub fn get_receipts_in_slot(&self, slot: SlotNumber) -> ReceiptIterator {
         // Get all transaction hashes for this slot
         let transaction_hashes = {
             let receipts_by_slot = self.receipts_by_slot.lock().unwrap();

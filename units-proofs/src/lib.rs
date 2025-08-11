@@ -1,8 +1,9 @@
 pub mod engine;
-pub mod merkle_proof;
+pub mod simple_proof;
 
 // Re-export the main types for convenience
 pub use engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof, VerificationResult};
+pub use simple_proof::SimpleProofEngine;
 
 // Helper functions
 pub mod proofs {

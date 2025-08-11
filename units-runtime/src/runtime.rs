@@ -4,7 +4,7 @@ use units_core::error::RuntimeError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
 use units_core::transaction::{
-    CommitmentLevel, ConflictResult, Instruction, Transaction, TransactionHash, TransactionReceipt,
+    CommitmentLevel, ConflictResult, Transaction, TransactionHash, TransactionReceipt,
 };
 
 /// Runtime for executing transactions and programs in the UNITS system
@@ -49,31 +49,20 @@ pub trait Runtime {
     fn execute_program_call(
         &self,
         program_id: &UnitsObjectId,
-        args: &[u8],
+        _args: &[u8],
         transaction_hash: &TransactionHash,
         objects: HashMap<UnitsObjectId, UnitsObject>,
-        parameters: HashMap<String, String>,
+        _parameters: HashMap<String, String>,
     ) -> Result<HashMap<UnitsObjectId, UnitsObject>, ExecutionError> {
-        // Create an instruction
-        let instruction = Instruction::new(
-            args.to_vec(),
-            self.backend_manager().default_runtime_type(),
-            vec![],
-            *program_id,
-        );
-
-        // Create execution context
+        // Create execution context (simplified)
         let context = InstructionContext {
             transaction_hash,
             objects,
-            parameters,
-            program_id: Some(*program_id),
-            entrypoint: None,
         };
 
-        // Execute the program
+        // Execute the program (simplified - no instruction parameter needed)
         self.backend_manager()
-            .execute_program_call(program_id, &instruction, context)
+            .execute_program_call(program_id, context)
     }
 
     //--------------------------------------------------------------------------

@@ -33,6 +33,9 @@ pub struct LockInfo {
 /// Iterator for traversing lock information
 pub trait UnitsLockIterator<E>: Iterator<Item = Result<LockInfo, E>> {}
 
+// Blanket implementation for all iterators that produce the right item type
+impl<T, E> UnitsLockIterator<E> for T where T: Iterator<Item = Result<LockInfo, E>> {}
+
 /// The access intent for an instruction on a TokenizedObject
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AccessIntent {

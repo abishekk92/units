@@ -1,4 +1,6 @@
 use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::runtime::Runtime;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::locks::{AccessIntent, LockInfo, LockType, PersistentLockManager, UnitsLockIterator};
@@ -9,58 +11,7 @@ use sqlx::Row;
 /// Direct implementation of the PersistentLockManager trait from units-core
 /// The LockManagerTrait is no longer needed as we can directly implement PersistentLockManager
 
-/// An empty iterator implementation for LockInfo
-pub struct EmptyLockIterator<E>(std::marker::PhantomData<E>);
-
-impl<E> EmptyLockIterator<E> {
-    pub fn new() -> Self {
-        Self(std::marker::PhantomData)
-    }
-}
-
-impl<E> Iterator for EmptyLockIterator<E> {
-    type Item = Result<LockInfo, E>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        None
-    }
-}
-
-impl<E: Debug + std::fmt::Display> UnitsLockIterator<E> for EmptyLockIterator<E> {}
-
-// Wrapper types for different iterator implementations
-
-/// Wrapper for a vector iterator
-pub struct LockInfoVecIterator(std::vec::IntoIter<Result<LockInfo, StorageError>>);
-
-impl Iterator for LockInfoVecIterator {
-    type Item = Result<LockInfo, StorageError>;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-impl UnitsLockIterator<StorageError> for LockInfoVecIterator {}
-
-/// Wrapper for a once (single item) iterator
-pub struct LockInfoOnceIterator(std::iter::Once<Result<LockInfo, StorageError>>);
-
-impl LockInfoOnceIterator {
-    pub fn new(item: Result<LockInfo, StorageError>) -> Self {
-        Self(std::iter::once(item))
-    }
-}
-
-impl Iterator for LockInfoOnceIterator {
-    type Item = Result<LockInfo, StorageError>;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-impl UnitsLockIterator<StorageError> for LockInfoOnceIterator {}
+// Iterator wrapper types removed - using Box<dyn Iterator> directly for simplicity
 
 /// Helper function to get the current timestamp in seconds
 pub fn current_time_secs() -> u64 {
@@ -75,13 +26,16 @@ pub fn current_time_secs() -> u64 {
 pub struct SqliteLockManager {
     /// The SQLite pool for database connections
     pool: sqlx::SqlitePool,
+    /// Shared Tokio runtime for async operations
+    rt: Arc<Runtime>,
 }
 
 #[cfg(feature = "sqlite")]
 impl SqliteLockManager {
     /// Create a new SqliteLockManager with the given SQLite connection pool
     pub fn new(pool: sqlx::SqlitePool) -> Self {
-        Self { pool }
+        let rt = Arc::new(Runtime::new().expect("Failed to create Tokio runtime for SqliteLockManager"));
+        Self { pool, rt }
     }
 
     /// Initialize the database schema for locks
@@ -310,12 +264,8 @@ impl PersistentLockManager for SqliteLockManager {
         transaction_hash: &[u8; 32],
         timeout_ms: Option<u64>,
     ) -> Result<bool, Self::Error> {
-        // Create a runtime for async operations
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            StorageError::Other(format!("Failed to create runtime: {}", e))
-        })?;
-
-        rt.block_on(async {
+        // Use shared runtime for async operations
+        self.rt.block_on(async {
             // Check if this transaction already has a lock
             let existing_lock = self.check_transaction_has_lock(object_id, transaction_hash).await?;
             if let Some(lock) = existing_lock {
@@ -400,11 +350,8 @@ impl PersistentLockManager for SqliteLockManager {
         object_id: &UnitsObjectId,
         transaction_hash: &[u8; 32],
     ) -> Result<bool, Self::Error> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            StorageError::Other(format!("Failed to create runtime: {}", e))
-        })?;
-
-        rt.block_on(async {
+        // Use shared runtime for async operations
+        self.rt.block_on(async {
             // Delete the lock record
             let result = sqlx::query(
                 r#"
@@ -428,11 +375,8 @@ impl PersistentLockManager for SqliteLockManager {
         &self,
         object_id: &UnitsObjectId,
     ) -> Result<Option<LockInfo>, Self::Error> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            StorageError::Other(format!("Failed to create runtime: {}", e))
-        })?;
-
-        rt.block_on(async { self.get_object_lock_info_internal(object_id).await })
+        // Use shared runtime for async operations
+        self.rt.block_on(async { self.get_object_lock_info_internal(object_id).await })
     }
 
     fn can_acquire_lock(
@@ -441,11 +385,8 @@ impl PersistentLockManager for SqliteLockManager {
         intent: AccessIntent,
         transaction_hash: &[u8; 32],
     ) -> Result<bool, Self::Error> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            StorageError::Other(format!("Failed to create runtime: {}", e))
-        })?;
-
-        rt.block_on(async {
+        // Use shared runtime for async operations
+        self.rt.block_on(async {
             // Convert AccessIntent to LockType
             let lock_type = match intent {
                 AccessIntent::Read => LockType::Read,
@@ -474,11 +415,8 @@ impl PersistentLockManager for SqliteLockManager {
         &self,
         transaction_hash: &[u8; 32],
     ) -> Result<usize, Self::Error> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            StorageError::Other(format!("Failed to create runtime: {}", e))
-        })?;
-
-        rt.block_on(async {
+        // Use shared runtime for async operations
+        self.rt.block_on(async {
             // Delete all locks held by this transaction
             let result = sqlx::query(
                 r#"
@@ -501,16 +439,8 @@ impl PersistentLockManager for SqliteLockManager {
         &self,
         transaction_hash: &[u8; 32],
     ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                let error = StorageError::Other(format!("Failed to create runtime: {}", e));
-                return Box::new(LockInfoOnceIterator::new(Err(error)));
-            }
-        };
-
-        // Get locks for this transaction
-        let results = match rt.block_on(async {
+        // Get locks for this transaction using shared runtime
+        let results = match self.rt.block_on(async {
             sqlx::query(
                 r#"
                 SELECT object_id, lock_type, acquired_at, timeout_ms
@@ -525,7 +455,7 @@ impl PersistentLockManager for SqliteLockManager {
             Ok(rows) => rows,
             Err(e) => {
                 let error = StorageError::Database(format!("Failed to query transaction locks: {}", e));
-                return Box::new(LockInfoOnceIterator::new(Err(error)));
+                return Box::new(std::iter::once(Err(error)));
             }
         };
 
@@ -566,42 +496,31 @@ impl PersistentLockManager for SqliteLockManager {
             }));
         }
 
-        Box::new(LockInfoVecIterator(lock_infos.into_iter()))
+        Box::new(lock_infos.into_iter())
     }
 
     fn get_object_locks(
         &self,
         object_id: &UnitsObjectId,
     ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                let error = StorageError::Other(format!("Failed to create runtime: {}", e));
-                return Box::new(LockInfoOnceIterator::new(Err(error)));
-            }
-        };
-
-        match rt.block_on(self.get_all_object_locks_internal(object_id)) {
+        // Use shared runtime for async operations
+        match self.rt.block_on(self.get_all_object_locks_internal(object_id)) {
             Ok(locks) => {
                 if locks.is_empty() {
-                    Box::new(EmptyLockIterator::new())
+                    Box::new(std::iter::empty())
                 } else {
-                    let iter = locks.into_iter().map(Ok);
-                    Box::new(LockInfoVecIterator(iter.collect::<Vec<_>>().into_iter()))
+                    Box::new(locks.into_iter().map(Ok))
                 }
             }
             Err(e) => {
-                Box::new(LockInfoOnceIterator::new(Err(e)))
+                Box::new(std::iter::once(Err(e)))
             }
         }
     }
 
     fn cleanup_expired_locks(&self) -> Result<usize, Self::Error> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            StorageError::Other(format!("Failed to create runtime: {}", e))
-        })?;
-
-        rt.block_on(async {
+        // Use shared runtime for async operations
+        self.rt.block_on(async {
             let now = current_time_secs() as i64;
 
             // Delete all expired locks
