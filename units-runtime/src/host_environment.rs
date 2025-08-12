@@ -149,19 +149,3 @@ pub fn create_host_environment(
     Ok(Arc::new(env))
 }
 
-/// Create a standard host environment (alias for create_host_environment)
-pub fn create_standard_host_environment(
-    objects: HashMap<UnitsObjectId, UnitsObject>,
-    parameters: &HashMap<String, String>,
-    transaction_hash: [u8; 32],
-    program_id: Option<UnitsObjectId>,
-    instruction_params: &[u8],
-) -> Result<Arc<dyn HostEnvironment>> {
-    create_host_environment(
-        objects,
-        parameters,
-        transaction_hash,
-        program_id,
-        instruction_params
-    )
-}

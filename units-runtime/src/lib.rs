@@ -22,11 +22,14 @@ pub use verification::{detect_double_spend, verify_transaction_included, ProofVe
 
 // Re-export host environment types
 pub use host_environment::{
-    create_standard_host_environment, HostEnvironment, StandardHostEnvironment,
+    create_host_environment, HostEnvironment, StandardHostEnvironment,
 };
 
-// Re-export MockRuntime and InMemoryReceiptStorage for testing
-pub use mock_runtime::{InMemoryReceiptStorage, MockRuntime};
+// Re-export MockRuntime for testing
+pub use mock_runtime::MockRuntime;
+
+// Re-export receipt storage for testing  
+pub use receipt_storage::InMemoryReceiptStorage;
 
 // Re-export VerificationResult from units-proofs
 pub use units_core::proofs::VerificationResult;

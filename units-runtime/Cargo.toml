@@ -11,14 +11,12 @@ keywords = ["units", "tokenization", "runtime", "verification"]
 [dependencies]
 units-core.workspace = true
 units-storage-impl.workspace = true
-curve25519-dalek.workspace = true
 bincode.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
-chrono.workspace = true
 rvsim = "0.2.2"
 
 [dev-dependencies]

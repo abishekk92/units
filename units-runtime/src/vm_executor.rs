@@ -19,9 +19,6 @@ pub struct ExecutionContext {
     
     /// Current timestamp
     pub timestamp: u64,
-    
-    /// Host environment variables
-    pub env_vars: HashMap<String, String>,
 }
 
 impl ExecutionContext {
@@ -37,7 +34,6 @@ impl ExecutionContext {
             objects,
             slot,
             timestamp,
-            env_vars: HashMap::new(),
         }
     }
 
@@ -53,10 +49,6 @@ impl ExecutionContext {
         &self.objects
     }
 
-    /// Add an environment variable
-    pub fn add_env_var(&mut self, key: String, value: String) {
-        self.env_vars.insert(key, value);
-    }
 }
 
 /// Effect of controller execution on a single object

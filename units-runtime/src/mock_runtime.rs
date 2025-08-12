@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
 
-use units_core::error::{RuntimeError, StorageError};
+use units_core::error::RuntimeError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::{UnitsObject, VMType};
 use units_core::transaction::{
@@ -12,7 +11,6 @@ use units_core::proofs::SlotNumber;
 use crate::runtime::Runtime;
 use crate::vm_executor::VMExecutor;
 use crate::riscv_executor::RiscVExecutor;
-use units_storage_impl::storage_traits::{TransactionReceiptStorage, UnitsReceiptIterator};
 
 /// Mock implementation of the Runtime trait for testing purposes
 pub struct MockRuntime {
@@ -117,80 +115,3 @@ impl Clone for MockRuntime {
     }
 }
 
-/// Simple in-memory receipt storage for testing
-pub struct InMemoryReceiptStorage {
-    receipts: Mutex<HashMap<TransactionHash, TransactionReceipt>>,
-}
-
-impl InMemoryReceiptStorage {
-    pub fn new() -> Self {
-        Self {
-            receipts: Mutex::new(HashMap::new()),
-        }
-    }
-}
-
-impl Default for InMemoryReceiptStorage {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TransactionReceiptStorage for InMemoryReceiptStorage {
-    fn store_receipt(&self, receipt: &TransactionReceipt) -> Result<(), StorageError> {
-        self.receipts
-            .lock()
-            .map_err(|e| StorageError::LockError(format!("Lock error: {}", e)))?
-            .insert(receipt.transaction_hash, receipt.clone());
-        Ok(())
-    }
-
-    fn get_receipt(&self, hash: &TransactionHash) -> Result<Option<TransactionReceipt>, StorageError> {
-        Ok(self.receipts
-            .lock()
-            .map_err(|e| StorageError::LockError(format!("Lock error: {}", e)))?
-            .get(hash)
-            .cloned())
-    }
-
-    fn get_receipts_for_object(&self, _id: &UnitsObjectId) -> Box<dyn UnitsReceiptIterator + '_> {
-        // Simple implementation - return empty iterator
-        let empty_receipts = vec![];
-        Box::new(InMemoryReceiptIterator::new(empty_receipts))
-    }
-
-    fn get_receipts_in_slot(&self, slot: SlotNumber) -> Box<dyn UnitsReceiptIterator + '_> {
-        let receipts: Vec<TransactionReceipt> = self.receipts
-            .lock()
-            .unwrap_or_else(|_| panic!("Lock poisoned"))
-            .values()
-            .filter(|receipt| receipt.slot == slot)
-            .cloned()
-            .collect();
-        
-        Box::new(InMemoryReceiptIterator::new(receipts))
-    }
-}
-
-/// In-memory receipt iterator for testing
-pub struct InMemoryReceiptIterator {
-    receipts: std::vec::IntoIter<TransactionReceipt>,
-}
-
-impl InMemoryReceiptIterator {
-    fn new(receipts: Vec<TransactionReceipt>) -> Self {
-        Self {
-            receipts: receipts.into_iter(),
-        }
-    }
-}
-
-impl Iterator for InMemoryReceiptIterator {
-    type Item = Result<TransactionReceipt, StorageError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.receipts.next().map(Ok)
-    }
-}
-
-impl UnitsReceiptIterator for InMemoryReceiptIterator {}

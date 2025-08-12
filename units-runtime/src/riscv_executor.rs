@@ -103,18 +103,36 @@ impl RiscVExecutor {
             return Err(VMExecutionError::InvalidBytecode("Invalid ELF magic bytes".to_string()));
         }
         
-        // For now, we'll assume a simple ELF with entry point at a fixed location
-        // In a full implementation, we would parse the ELF header to get the actual entry point
-        // and load segments into memory at their specified addresses
+        // Check minimum ELF header size (52 bytes for 32-bit ELF)
+        if elf_bytes.len() < 52 {
+            return Err(VMExecutionError::InvalidBytecode("ELF file too small".to_string()));
+        }
         
         // Check if it's 32-bit ELF (required for RV32)
-        if elf_bytes.len() < 5 || elf_bytes[4] != 1 {
+        if elf_bytes[4] != 1 {
             return Err(VMExecutionError::InvalidBytecode("Only 32-bit ELF files are supported".to_string()));
         }
         
-        // For now, return a default entry point
-        // TODO: Parse ELF header to extract real entry point
-        Ok(0x1000)
+        // Check endianness (little endian for RISC-V)
+        if elf_bytes[5] != 1 {
+            return Err(VMExecutionError::InvalidBytecode("Only little-endian ELF files are supported".to_string()));
+        }
+        
+        // Parse entry point from ELF header (offset 24, 4 bytes little-endian)
+        let entry_point = u32::from_le_bytes([
+            elf_bytes[24], elf_bytes[25], elf_bytes[26], elf_bytes[27]
+        ]);
+        
+        // Validate entry point is reasonable (non-zero and aligned)
+        if entry_point == 0 {
+            return Err(VMExecutionError::InvalidBytecode("Invalid entry point (zero)".to_string()));
+        }
+        
+        if entry_point % 4 != 0 {
+            return Err(VMExecutionError::InvalidBytecode("Entry point must be 4-byte aligned".to_string()));
+        }
+        
+        Ok(entry_point)
     }
 
     /// Setup input buffer with execution context
@@ -311,9 +329,13 @@ mod tests {
         valid_elf[5] = 1; // little-endian
         valid_elf[6] = 1; // ELF version
         
-        // This should at least pass ELF validation (though execution may fail)
+        // Set entry point at offset 24 (4 bytes, little-endian)
+        let test_entry_point = 0x1000u32;
+        valid_elf[24..28].copy_from_slice(&test_entry_point.to_le_bytes());
+        
+        // This should pass ELF validation with the correct entry point
         let entry_point = executor.load_elf(&valid_elf);
         assert!(entry_point.is_ok());
-        assert_eq!(entry_point.unwrap(), 0x1000); // Default entry point
+        assert_eq!(entry_point.unwrap(), test_entry_point);
     }
 }
