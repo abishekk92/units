@@ -16,16 +16,12 @@ The project is organized as a Cargo workspace with the following crates:
   - Transaction types
   - Locking primitives
   - Scheduler
+  - Cryptographic proof systems (Merkle Proofs, Proof Engines, State Proofs)
   - Basic error types
-
-- **units-proofs**: Cryptographic proof systems
-  - Merkle Proofs
-  - Proof Engines
-  - State Proofs
 
 - **units-storage-impl**: Storage backends
   - Storage Traits
-  - SQLite Implementation
+  - SQLite Implementation (enabled by default)
   - Lock Manager
   - Write-Ahead Log
 
@@ -34,8 +30,6 @@ The project is organized as a Cargo workspace with the following crates:
   - Host Environment
   - Proof Verification
   - Runtime Backend
-
-- **units**: Convenience wrapper crate that re-exports all components
 
 ## Features
 
@@ -96,20 +90,17 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-units = "0.1.0"  # For the complete package
-
-# Or use specific components:
+# Use specific components:
 units-core = "0.1.0"
-units-proofs = "0.1.0"
-units-storage-impl = { version = "0.1.0", features = ["sqlite"] }
+units-storage-impl = "0.1.0"  # SQLite backend enabled by default
 units-runtime = "0.1.0"
 ```
 
-The SQLite storage backend is enabled by default:
+The SQLite storage backend is enabled by default. To disable it and use a custom storage backend:
 
 ```toml
 [dependencies]
-units-storage-impl = { version = "0.1.0", features = ["sqlite"] }
+units-storage-impl = { version = "0.1.0", default-features = false }
 ```
 
 ## Examples
@@ -117,9 +108,8 @@ units-storage-impl = { version = "0.1.0", features = ["sqlite"] }
 ### Basic Usage
 
 ```rust
-use units::{UnitsObjectId, UnitsObject};
-use units::SqliteStorage;  // With sqlite feature enabled
-use units::UnitsStorage;
+use units_core::{UnitsObjectId, UnitsObject};
+use units_storage_impl::{SqliteStorage, UnitsStorage};
 use std::path::Path;
 
 // Create a storage instance
