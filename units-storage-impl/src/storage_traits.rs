@@ -4,7 +4,7 @@ use units_core::id::UnitsObjectId;
 use units_core::locks::PersistentLockManager;
 use units_core::objects::UnitsObject;
 use units_core::transaction::{CommitmentLevel, TransactionEffect, TransactionReceipt};
-use units_proofs::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
+use units_core::proofs::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
 
 use std::collections::HashMap;
 use std::iter::Iterator;
@@ -448,7 +448,7 @@ pub trait UnitsWriteAheadLog {
     fn iterate_entries(&self) -> Box<dyn Iterator<Item = Result<WALEntry, StorageError>> + '_>;
     
     /// Get an iterator over WAL entries for a specific object
-    fn iterate_entries_for_object(&self, object_id: &UnitsObjectId) -> Box<dyn Iterator<Item = Result<WALEntry, StorageError>> + '_> {
+    fn iterate_entries_for_object<'a>(&'a self, object_id: &'a UnitsObjectId) -> Box<dyn Iterator<Item = Result<WALEntry, StorageError>> + 'a> {
         // Default implementation filters all entries
         Box::new(self.iterate_entries().filter(move |result| {
             if let Ok(entry) = result {

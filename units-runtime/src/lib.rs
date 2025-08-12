@@ -31,4 +31,4 @@ pub use host_environment::{
 pub use mock_runtime::{InMemoryReceiptStorage, MockRuntime};
 
 // Re-export VerificationResult from units-proofs
-pub use units_proofs::VerificationResult;
+pub use units_core::proofs::VerificationResult;

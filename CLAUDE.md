@@ -1,12 +1,12 @@
 # CLAUDE.md - Coding Assistant Reference
 
 ## Build Commands
-- Build: `fish -c "cargo workspaces exec -- cargo build --features all"`
-- Check: `fish -c "cargo workspaces exec -- cargo check --features all"`
-- Run tests: `fish -c "cargo workspaces exec -- cargo test --features all"`
-- Run single test: `fish -c "cargo test test_name --features all"` (specific crate test)
-- Run tests for specific crate: `fish -c "cd crate-name && cargo test --features all"`
-- Run with release: `fish -c "cargo workspaces exec -- cargo build --release --features all"`
+- Build: `fish -c "cargo workspaces exec -- cargo build"`
+- Check: `fish -c "cargo workspaces exec -- cargo check"`
+- Run tests: `fish -c "cargo workspaces exec -- cargo test"`
+- Run single test: `fish -c "cargo test test_name"` (specific crate test)
+- Run tests for specific crate: `fish -c "cd crate-name && cargo test"`
+- Run with release: `fish -c "cargo workspaces exec -- cargo build --release"`
 - Standard workflow: Build → Check → Test (skip clippy)
 
 ## Code Style Guidelines

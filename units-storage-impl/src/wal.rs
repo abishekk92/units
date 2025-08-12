@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use units_core::error::StorageError;
 use units_core::objects::UnitsObject;
-use units_proofs::{StateProof, UnitsObjectProof};
+use units_core::proofs::{StateProof, UnitsObjectProof};
 
 /// Entry type in the WAL
 #[derive(Debug, Clone, Serialize, Deserialize)]

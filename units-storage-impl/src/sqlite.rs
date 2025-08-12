@@ -24,9 +24,9 @@ use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::{ObjectType, TokenType, UnitsObject};
 use units_core::transaction::{CommitmentLevel, TransactionReceipt};
-use units_proofs::merkle_proof::MerkleProofEngine;
-use units_proofs::SlotNumber;
-use units_proofs::{ProofEngine, StateProof, UnitsObjectProof, VerificationResult};
+use units_core::proofs::merkle_proof::MerkleProofEngine;
+use units_core::proofs::SlotNumber;
+use units_core::proofs::{ProofEngine, StateProof, UnitsObjectProof, VerificationResult};
 
 /// A SQLite-based implementation of the UnitsStorage interface using sqlx.
 pub struct SqliteStorage {
@@ -1382,7 +1382,7 @@ impl WALWriter for SqliteStorage {
             crate::wal::WALEntryType::ObjectUpdate(update) => {
                 (
                     SqliteWALEntryType::ObjectUpdate as i64,
-                    Some(update.object.id().as_bytes().to_vec()),
+                    Some(update.object.id().bytes().to_vec()),
                     update.slot as i64,
                     update.transaction_hash.map(|hash| hash.to_vec()),
                 )
@@ -1414,6 +1414,7 @@ impl WALWriter for SqliteStorage {
             .bind(serialized)
             .execute(&self.pool)
             .await
+            .map(|_| ())
             .map_err(|e| StorageError::Database(format!("Failed to write WAL entry: {}", e)))
         })
     }
@@ -1431,7 +1432,7 @@ impl SqliteWALSource {
     fn new(pool: SqlitePool, object_id: Option<UnitsObjectId>) -> Self {
         Self {
             pool,
-            object_id: object_id.map(|id| id.as_bytes().to_vec()),
+            object_id: object_id.map(|id| id.bytes().to_vec()),
             current_offset: 0,
             batch_size: 10,
         }
@@ -1498,7 +1499,7 @@ impl AsyncSource<WALEntry, StorageError> for SqliteWALSource {
                                 batch_size,
                             }.fetch_next().await
                         },
-                        Err(e) => Some(Err(StorageError::Deserialization(e.to_string()))),
+                        Err(e) => Some(Err(StorageError::Serialization(e.to_string()))),
                     }
                 },
                 Ok(None) => None, // No more entries
@@ -1775,7 +1776,7 @@ mod tests {
             _slot: Option<SlotNumber>,
         ) -> Result<StateProof, StorageError> {
             // Generate a simple state proof without previous state
-            let slot = _slot.unwrap_or_else(units_proofs::proofs::current_slot);
+            let slot = _slot.unwrap_or_else(units_core::proofs::current_slot);
 
             // Collect all proofs for state proof generation
             let proofs_lock = self.proofs.lock().unwrap();

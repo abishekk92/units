@@ -9,7 +9,7 @@ use units_core::transaction::{
     CommitmentLevel, ConflictResult, Transaction, TransactionEffect, TransactionHash,
     TransactionReceipt,
 };
-use units_proofs::SlotNumber;
+use units_core::proofs::SlotNumber;
 
 use crate::runtime::Runtime;
 use crate::runtime_backend::RuntimeBackendManager;

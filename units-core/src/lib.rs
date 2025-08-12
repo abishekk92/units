@@ -2,6 +2,7 @@ pub mod error;
 pub mod id;
 pub mod locks;
 pub mod objects;
+pub mod proofs;
 pub mod transaction;
 pub mod scheduler;
 
@@ -40,4 +41,14 @@ pub use transaction::{
 pub use scheduler::{
     ConflictChecker,
     BasicConflictChecker,
+};
+
+// Re-export proofs types
+pub use proofs::{
+    current_slot,
+    ProofEngine,
+    SlotNumber,
+    StateProof,
+    UnitsObjectProof,
+    VerificationResult,
 };

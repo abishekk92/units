@@ -1,10 +1,10 @@
-use crate::engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
+use crate::proofs::engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
 use blake3;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
-use units_core::error::StorageError;
-use units_core::id::UnitsObjectId;
-use units_core::objects::UnitsObject;
+use crate::error::StorageError;
+use crate::id::UnitsObjectId;
+use crate::objects::UnitsObject;
 
 /// A simplified implementation of a Jellyfish Merkle Tree
 ///
@@ -205,18 +205,18 @@ impl MerkleTree {
         
         // Add type-specific data based on object type
         match &object.metadata {
-            units_core::objects::ObjectMetadata::Token { token_type, token_manager } => {
+            crate::objects::ObjectMetadata::Token { token_type, token_manager } => {
                 hasher.update(token_manager.as_ref());
                 hasher.update(&[match token_type {
-                    units_core::objects::TokenType::Native => 0,
-                    units_core::objects::TokenType::Custodial => 1,
-                    units_core::objects::TokenType::Proxy => 2,
+                    crate::objects::TokenType::Native => 0,
+                    crate::objects::TokenType::Custodial => 1,
+                    crate::objects::TokenType::Proxy => 2,
                 }]);
             },
-            units_core::objects::ObjectMetadata::Code { runtime_type, entrypoint } => {
+            crate::objects::ObjectMetadata::Code { runtime_type, entrypoint } => {
                 hasher.update(&[match runtime_type {
-                    units_core::transaction::RuntimeType::Wasm => 1,
-                    units_core::transaction::RuntimeType::Ebpf => 2,
+                    crate::transaction::RuntimeType::Wasm => 1,
+                    crate::transaction::RuntimeType::Ebpf => 2,
                 }]);
                 hasher.update(entrypoint.as_bytes());
             },
@@ -612,8 +612,8 @@ impl ProofEngine for MerkleProofEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use units_core::id::UnitsObjectId;
-    use units_core::objects::{TokenType, UnitsObject};
+    use crate::id::UnitsObjectId;
+    use crate::objects::{TokenType, UnitsObject};
 
     #[test]
     fn test_merkle_proof_basic() {
@@ -664,9 +664,9 @@ mod tests {
     fn test_merkle_proof_engine() {
         use crate::proofs::current_slot;
         // Create a test object
-        let id = units_core::id::UnitsObjectId::unique_id_for_tests();
-        let owner = units_core::id::UnitsObjectId::unique_id_for_tests();
-        let token_manager = units_core::id::UnitsObjectId::unique_id_for_tests();
+        let id = crate::id::UnitsObjectId::unique_id_for_tests();
+        let owner = crate::id::UnitsObjectId::unique_id_for_tests();
+        let token_manager = crate::id::UnitsObjectId::unique_id_for_tests();
         let obj = UnitsObject::new_token(
             id,
             owner,

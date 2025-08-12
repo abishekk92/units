@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
 
-use units_proofs::UnitsObjectProof;
-use units_proofs::{ProofEngine, SlotNumber, StateProof, VerificationResult};
+use units_core::proofs::UnitsObjectProof;
+use units_core::proofs::{ProofEngine, SlotNumber, StateProof, VerificationResult};
 
 use units_core::transaction::TransactionReceipt;
 
@@ -202,7 +202,7 @@ pub fn detect_double_spend(
 mod tests {
     use super::*;
     use units_core::id::UnitsObjectId;
-    use units_proofs::merkle_proof::MerkleProofEngine;
+    use units_core::proofs::merkle_proof::MerkleProofEngine;
 
     fn create_test_object() -> UnitsObject {
         UnitsObject::new_token(
