@@ -4,18 +4,18 @@ use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
 
-/// A simple proof engine that just creates hash-based proofs
-/// This is much simpler than the complex Merkle tree implementation
+/// A hash-based proof engine that creates proofs using BLAKE3 hashes
+/// This provides a straightforward implementation without complex data structures
 #[derive(Debug, Clone)]
-pub struct SimpleProofEngine;
+pub struct HashProofEngine;
 
-impl SimpleProofEngine {
+impl HashProofEngine {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl ProofEngine for SimpleProofEngine {
+impl ProofEngine for HashProofEngine {
     fn generate_object_proof(
         &self,
         object: &UnitsObject,

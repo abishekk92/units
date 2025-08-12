@@ -21,7 +21,7 @@ use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::{ObjectType, TokenType, UnitsObject};
 use units_core::transaction::{CommitmentLevel, TransactionReceipt};
-use units_proofs::SimpleProofEngine;
+use units_proofs::HashProofEngine;
 use units_proofs::SlotNumber;
 use units_proofs::{ProofEngine, StateProof, UnitsObjectProof};
 
@@ -30,7 +30,7 @@ pub struct SqliteStorage {
     pool: SqlitePool,
     rt: Arc<Runtime>,
     db_path: PathBuf,
-    proof_engine: SimpleProofEngine,
+    proof_engine: HashProofEngine,
     lock_manager: SqliteLockManager,
 }
 
@@ -98,7 +98,7 @@ impl SqliteStorage {
             pool,
             rt,
             db_path,
-            proof_engine: SimpleProofEngine::new(),
+            proof_engine: HashProofEngine::new(),
             lock_manager,
         })
     }
@@ -877,6 +877,75 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use units_core::id::UnitsObjectId;
     use units_core::objects::TokenType;
+    use units_core::locks::{AccessIntent, LockInfo, LockType, UnitsLockIterator};
+    use units_proofs::VerificationResult;
+
+    // Mock lock manager for testing
+    #[derive(Debug)]
+    struct MockLockManager;
+    
+    impl PersistentLockManager for MockLockManager {
+        type Error = StorageError;
+        
+        fn acquire_lock(
+            &self,
+            _object_id: &UnitsObjectId,
+            _lock_type: LockType,
+            _transaction_hash: &[u8; 32],
+            _timeout_ms: Option<u64>,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+        
+        fn release_lock(
+            &self,
+            _object_id: &UnitsObjectId,
+            _transaction_hash: &[u8; 32],
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+        
+        fn get_lock_info(
+            &self,
+            _object_id: &UnitsObjectId,
+        ) -> Result<Option<LockInfo>, Self::Error> {
+            Ok(None)
+        }
+        
+        fn can_acquire_lock(
+            &self,
+            _object_id: &UnitsObjectId,
+            _intent: AccessIntent,
+            _transaction_hash: &[u8; 32],
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+        
+        fn release_transaction_locks(
+            &self,
+            _transaction_hash: &[u8; 32],
+        ) -> Result<usize, Self::Error> {
+            Ok(0)
+        }
+        
+        fn get_transaction_locks(
+            &self,
+            _transaction_hash: &[u8; 32],
+        ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
+            Box::new(std::iter::empty())
+        }
+        
+        fn get_object_locks(
+            &self,
+            _object_id: &UnitsObjectId,
+        ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
+            Box::new(std::iter::empty())
+        }
+        
+        fn cleanup_expired_locks(&self) -> Result<usize, Self::Error> {
+            Ok(0)
+        }
+    }
 
     // Iterator implementations for testing
     struct MockProofIterator {
@@ -898,8 +967,6 @@ mod tests {
         }
     }
 
-    impl UnitsProofIterator for MockProofIterator {}
-
     struct MockStateProofIterator {
         proofs: Vec<StateProof>,
         index: usize,
@@ -918,8 +985,6 @@ mod tests {
             }
         }
     }
-
-    impl UnitsStateProofIterator for MockStateProofIterator {}
 
     struct MockStorageIterator {
         objects: Vec<UnitsObject>,
@@ -940,15 +1005,13 @@ mod tests {
         }
     }
 
-    impl UnitsStorageIterator for MockStorageIterator {}
-
     // Mock implementation for testing that doesn't use Tokio runtime
     struct MockSqliteStorage {
         objects: Arc<Mutex<HashMap<UnitsObjectId, UnitsObject>>>,
         proofs: Arc<Mutex<HashMap<UnitsObjectId, Vec<(SlotNumber, UnitsObjectProof)>>>>,
         state_proofs: Arc<Mutex<HashMap<SlotNumber, StateProof>>>,
         current_slot: Arc<Mutex<SlotNumber>>,
-        proof_engine: SimpleProofEngine,
+        proof_engine: HashProofEngine,
     }
 
     impl MockSqliteStorage {
@@ -958,7 +1021,7 @@ mod tests {
                 proofs: Arc::new(Mutex::new(HashMap::new())),
                 state_proofs: Arc::new(Mutex::new(HashMap::new())),
                 current_slot: Arc::new(Mutex::new(1000)), // Start at a base slot number
-                proof_engine: SimpleProofEngine::new(),
+                proof_engine: HashProofEngine::new(),
             }
         }
 
@@ -970,9 +1033,176 @@ mod tests {
         }
     }
 
-    impl UnitsStorageProofEngine for MockSqliteStorage {
+    impl UnitsStorage for MockSqliteStorage {
+        fn lock_manager(&self) -> &dyn PersistentLockManager<Error = StorageError> {
+            // Return a mock lock manager
+            static MOCK_LOCK_MANAGER: MockLockManager = MockLockManager;
+            &MOCK_LOCK_MANAGER
+        }
+
         fn proof_engine(&self) -> &dyn ProofEngine {
             &self.proof_engine
+        }
+
+        fn get(&self, id: &UnitsObjectId) -> Result<Option<UnitsObject>, StorageError> {
+            let objects = self.objects.lock().unwrap();
+            Ok(objects.get(id).cloned())
+        }
+
+        fn get_at_slot(
+            &self,
+            id: &UnitsObjectId,
+            slot: SlotNumber,
+        ) -> Result<Option<UnitsObject>, StorageError> {
+            // For testing, just return the current object if it exists
+            // In a real implementation, this would look up historical data
+            let _ = slot; // Unused in mock
+            self.get(id)
+        }
+
+        fn set(
+            &self,
+            object: &UnitsObject,
+            transaction_hash: Option<[u8; 32]>,
+        ) -> Result<UnitsObjectProof, StorageError> {
+            let slot = self.next_slot();
+            
+            // Get previous proof if exists
+            let previous_proof = self.get_proof(object.id())?;
+            
+            let mut proof = self.proof_engine.generate_object_proof(
+                object,
+                previous_proof.as_ref(),
+                transaction_hash,
+            )?;
+            
+            // Override the slot for testing to ensure sequential slots
+            proof.slot = slot;
+
+            // Store the object
+            let mut objects = self.objects.lock().unwrap();
+            objects.insert(*object.id(), object.clone());
+            drop(objects);
+
+            // Store the proof
+            let mut proofs = self.proofs.lock().unwrap();
+            proofs.entry(*object.id())
+                .or_insert_with(Vec::new)
+                .push((proof.slot, proof.clone()));
+
+            Ok(proof)
+        }
+
+        fn delete(
+            &self,
+            id: &UnitsObjectId,
+            transaction_hash: Option<[u8; 32]>,
+        ) -> Result<UnitsObjectProof, StorageError> {
+            let slot = self.next_slot();
+            
+            // Get the object before deletion
+            let object = self.get(id)?.ok_or_else(|| 
+                StorageError::NotFound(format!("Object {} not found", id))
+            )?;
+            
+            // Get previous proof
+            let previous_proof = self.get_proof(id)?;
+            
+            // For deletion, we generate a proof of the last state before deletion
+            let mut proof = self.proof_engine.generate_object_proof(
+                &object,
+                previous_proof.as_ref(),
+                transaction_hash,
+            )?;
+            
+            // Override the slot for testing to ensure sequential slots
+            proof.slot = slot;
+
+            // Remove the object
+            let mut objects = self.objects.lock().unwrap();
+            objects.remove(id);
+            drop(objects);
+
+            // Store the proof
+            let mut proofs = self.proofs.lock().unwrap();
+            proofs.entry(*id)
+                .or_insert_with(Vec::new)
+                .push((proof.slot, proof.clone()));
+
+            Ok(proof)
+        }
+
+        fn scan(&self) -> ObjectIterator {
+            let objects = self.objects.lock().unwrap();
+            let all_objects: Vec<UnitsObject> = objects.values().cloned().collect();
+            
+            Box::new(MockStorageIterator {
+                objects: all_objects,
+                index: 0,
+            })
+        }
+
+        fn set_batch(
+            &self,
+            objects: &[UnitsObject],
+            transaction_hash: [u8; 32],
+        ) -> Result<HashMap<UnitsObjectId, UnitsObjectProof>, StorageError> {
+            let mut proofs = HashMap::new();
+            for object in objects {
+                let proof = self.set(object, Some(transaction_hash))?;
+                proofs.insert(*object.id(), proof);
+            }
+            Ok(proofs)
+        }
+
+        fn delete_batch(
+            &self,
+            ids: &[UnitsObjectId],
+            transaction_hash: [u8; 32],
+        ) -> Result<HashMap<UnitsObjectId, UnitsObjectProof>, StorageError> {
+            let mut proofs = HashMap::new();
+            for id in ids {
+                let proof = self.delete(id, Some(transaction_hash))?;
+                proofs.insert(*id, proof);
+            }
+            Ok(proofs)
+        }
+
+        fn generate_state_proof(&self, slot: Option<SlotNumber>) -> Result<StateProof, StorageError> {
+            let slot = slot.unwrap_or_else(|| self.next_slot());
+            
+            // Collect all current object proofs
+            let proofs = self.proofs.lock().unwrap();
+            let mut object_proofs = Vec::new();
+            
+            for (id, proof_vec) in proofs.iter() {
+                if let Some((_, last_proof)) = proof_vec.last() {
+                    object_proofs.push((*id, last_proof.clone()));
+                }
+            }
+            drop(proofs);
+            
+            // Get previous state proof if any
+            let state_proofs = self.state_proofs.lock().unwrap();
+            let prev_state_proof = state_proofs.values().max_by_key(|p| p.slot);
+            
+            let state_proof = self.proof_engine.generate_state_proof(
+                &object_proofs,
+                prev_state_proof,
+                slot,
+            )?;
+            
+            Ok(state_proof)
+        }
+
+        fn generate_and_store_state_proof(&self) -> Result<StateProof, StorageError> {
+            let state_proof = self.generate_state_proof(None)?;
+            
+            // Store the state proof
+            let mut state_proofs = self.state_proofs.lock().unwrap();
+            state_proofs.insert(state_proof.slot, state_proof.clone());
+            
+            Ok(state_proof)
         }
 
         fn get_proof(&self, id: &UnitsObjectId) -> Result<Option<UnitsObjectProof>, StorageError> {
@@ -987,7 +1217,7 @@ mod tests {
             Ok(None)
         }
 
-        fn get_proof_history(&self, id: &UnitsObjectId) -> Box<dyn UnitsProofIterator + '_> {
+        fn get_proof_history(&self, id: &UnitsObjectId) -> ProofIterator {
             let proofs = self.proofs.lock().unwrap();
 
             let result: Vec<(SlotNumber, UnitsObjectProof)> =
@@ -1022,6 +1252,38 @@ mod tests {
             }
 
             Ok(None)
+        }
+
+        fn get_state_proofs(&self) -> StateProofIterator {
+            let state_proofs = self.state_proofs.lock().unwrap();
+            let all_proofs: Vec<StateProof> = state_proofs.values().cloned().collect();
+            
+            Box::new(MockStateProofIterator {
+                proofs: all_proofs,
+                index: 0,
+            })
+        }
+
+        fn get_state_proof_at_slot(
+            &self,
+            slot: SlotNumber,
+        ) -> Result<Option<StateProof>, StorageError> {
+            let state_proofs = self.state_proofs.lock().unwrap();
+            Ok(state_proofs.get(&slot).cloned())
+        }
+
+        fn verify_proof(
+            &self,
+            id: &UnitsObjectId,
+            proof: &UnitsObjectProof,
+        ) -> Result<bool, StorageError> {
+            // Get the object to verify against
+            let object = self.get(id)?.ok_or_else(|| 
+                StorageError::NotFound(format!("Object {} not found", id))
+            )?;
+            
+            // Use the proof engine to verify
+            self.proof_engine.verify_object_proof(&object, proof)
         }
 
         fn verify_proof_chain(
@@ -1088,214 +1350,33 @@ mod tests {
             }
         }
 
-        fn generate_state_proof(
-            &self,
-            _slot: Option<SlotNumber>,
-        ) -> Result<StateProof, StorageError> {
-            // Generate a simple state proof without previous state
-            let slot = _slot.unwrap_or_else(units_proofs::proofs::current_slot);
-
-            // Collect all proofs for state proof generation
-            let proofs_lock = self.proofs.lock().unwrap();
-            let mut all_proofs = Vec::new();
-
-            for (id, proof_vec) in proofs_lock.iter() {
-                if let Some((_, proof)) = proof_vec.last() {
-                    all_proofs.push((*id, proof.clone()));
-                }
-            }
-
-            self.proof_engine
-                .generate_state_proof(&all_proofs, None, slot)
+        fn store_receipt(&self, _receipt: &TransactionReceipt) -> Result<(), StorageError> {
+            // Mock implementation
+            Ok(())
         }
 
-        fn get_state_proofs(&self) -> Box<dyn UnitsStateProofIterator + '_> {
-            let state_proofs = self.state_proofs.lock().unwrap();
-
-            let result: Vec<StateProof> = state_proofs.values().cloned().collect();
-
-            Box::new(MockStateProofIterator {
-                proofs: result,
-                index: 0,
-            })
-        }
-
-        fn get_state_proof_at_slot(
-            &self,
-            _slot: SlotNumber,
-        ) -> Result<Option<StateProof>, StorageError> {
+        fn get_receipt(&self, _hash: &[u8; 32]) -> Result<Option<TransactionReceipt>, StorageError> {
+            // Mock implementation
             Ok(None)
         }
 
-        fn verify_proof(
-            &self,
-            id: &UnitsObjectId,
-            proof: &UnitsObjectProof,
-        ) -> Result<bool, StorageError> {
-            match self.get(id)? {
-                Some(object) => self.proof_engine.verify_object_proof(&object, proof),
-                None => Ok(false),
-            }
-        }
-    }
-
-    impl UnitsWriteAheadLog for MockSqliteStorage {
-        fn init(&self, _path: &Path) -> Result<(), StorageError> {
-            Ok(())
+        fn get_receipts_for_object(&self, _id: &UnitsObjectId) -> ReceiptIterator {
+            // Mock implementation - return empty iterator
+            Box::new(std::iter::empty())
         }
 
-        fn record_update(
+        fn get_receipts_in_slot(&self, _slot: SlotNumber) -> ReceiptIterator {
+            // Mock implementation - return empty iterator
+            Box::new(std::iter::empty())
+        }
+
+        fn update_transaction_commitment(
             &self,
-            _object: &UnitsObject,
-            _proof: &UnitsObjectProof,
-            _transaction_hash: Option<[u8; 32]>,
+            _transaction_hash: &[u8; 32],
+            _commitment_level: CommitmentLevel,
         ) -> Result<(), StorageError> {
+            // Mock implementation
             Ok(())
-        }
-
-        fn record_state_proof(&self, _state_proof: &StateProof) -> Result<(), StorageError> {
-            Ok(())
-        }
-
-        fn iterate_entries(&self) -> Box<dyn Iterator<Item = Result<WALEntry, StorageError>> + '_> {
-            // For testing, we create an empty iterator with the correct type
-            let empty: Vec<Result<WALEntry, StorageError>> = Vec::new();
-            Box::new(empty.into_iter())
-        }
-    }
-
-    impl UnitsStorage for MockSqliteStorage {
-        fn lock_manager(&self) -> &dyn PersistentLockManager<Error = StorageError> {
-            // This is just a dummy implementation for tests
-            unimplemented!("Mock lock manager not implemented for tests")
-        }
-
-        fn get(&self, id: &UnitsObjectId) -> Result<Option<UnitsObject>, StorageError> {
-            let objects = self.objects.lock().unwrap();
-            if let Some(obj) = objects.get(id) {
-                Ok(Some(obj.clone()))
-            } else {
-                Ok(None)
-            }
-        }
-
-        fn get_at_slot(
-            &self,
-            id: &UnitsObjectId,
-            _slot: SlotNumber,
-        ) -> Result<Option<UnitsObject>, StorageError> {
-            // For testing, find the object state as it was at the given slot
-            // This implementation just returns the most recent object, which might not be correct
-            // in a real system, but is good enough for testing the proof chain verification
-
-            // For simplicity, just return the current object state regardless of slot
-            // In a real implementation, historical versions would be tracked
-            self.get(id)
-        }
-
-        fn set(
-            &self,
-            object: &UnitsObject,
-            transaction_hash: Option<[u8; 32]>,
-        ) -> Result<UnitsObjectProof, StorageError> {
-            // Get previous proof if it exists
-            let prev_proof = self.get_proof(object.id())?;
-
-            // Force using our own slot numbers for testing to ensure they are sequential
-            let slot = self.next_slot();
-
-            // Generate a normal proof first
-            let mut proof = self.proof_engine.generate_object_proof(
-                object,
-                prev_proof.as_ref(),
-                transaction_hash,
-            )?;
-
-            // Then override its slot for testing
-            proof.slot = slot; // Override with our slot
-
-            // Store the object
-            {
-                let mut objects = self.objects.lock().unwrap();
-                objects.insert(*object.id(), object.clone());
-            }
-
-            // Store the proof
-            {
-                let mut proofs = self.proofs.lock().unwrap();
-                let proof_vec = proofs.entry(*object.id()).or_insert_with(Vec::new);
-                proof_vec.push((proof.slot, proof.clone()));
-            }
-
-            Ok(proof)
-        }
-
-        fn delete(
-            &self,
-            id: &UnitsObjectId,
-            transaction_hash: Option<[u8; 32]>,
-        ) -> Result<UnitsObjectProof, StorageError> {
-            // Get the object
-            let object = match self.get(id)? {
-                Some(obj) => obj,
-                None => {
-                    return Err(StorageError::NotFound(format!(
-                        "Object with ID {:?} not found",
-                        id
-                    )))
-                }
-            };
-
-            // Get previous proof if it exists
-            let prev_proof = self.get_proof(id)?;
-
-            // Force using our own slot numbers for testing to ensure they are sequential
-            let slot = self.next_slot();
-
-            // Generate a normal proof first
-            let mut proof = self.proof_engine.generate_object_proof(
-                &object,
-                prev_proof.as_ref(),
-                transaction_hash,
-            )?;
-
-            // Then override its slot for testing
-            proof.slot = slot; // Override with our slot
-
-            // Remove the object
-            {
-                let mut objects = self.objects.lock().unwrap();
-                objects.remove(id);
-            }
-
-            // Store the proof
-            {
-                let mut proofs = self.proofs.lock().unwrap();
-                let proof_vec = proofs.entry(*id).or_insert_with(Vec::new);
-                proof_vec.push((proof.slot, proof.clone()));
-            }
-
-            Ok(proof)
-        }
-
-        fn scan(&self) -> ObjectIterator {
-            let objects = self.objects.lock().unwrap();
-            let values: Vec<UnitsObject> = objects.values().cloned().collect();
-
-            Box::new(MockStorageIterator {
-                objects: values,
-                index: 0,
-            })
-        }
-
-        fn generate_and_store_state_proof(&self) -> Result<StateProof, StorageError> {
-            let state_proof = self.generate_state_proof(None)?;
-
-            // Store the state proof
-            let mut state_proofs = self.state_proofs.lock().unwrap();
-            state_proofs.insert(state_proof.slot, state_proof.clone());
-
-            Ok(state_proof)
         }
     }
 

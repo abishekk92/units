@@ -46,10 +46,11 @@ pub enum ExecutionError {
 // SIMPLIFIED RUNTIME BACKEND (no abstraction)
 //==============================================================================
 
-/// Simplified runtime backend that just returns errors for program execution
-pub struct SimpleRuntimeBackend;
+/// Stub runtime backend that returns errors for program execution
+/// This is a placeholder implementation until actual runtime support is added
+pub struct StubRuntimeBackend;
 
-impl SimpleRuntimeBackend {
+impl StubRuntimeBackend {
     pub fn new() -> Self {
         Self
     }
@@ -75,11 +76,11 @@ impl SimpleRuntimeBackend {
 //==============================================================================
 
 /// Legacy compatibility type alias
-pub type RuntimeBackendManager = SimpleRuntimeBackend;
+pub type RuntimeBackendManager = StubRuntimeBackend;
 
 // Legacy compatibility exports for existing code
-pub use SimpleRuntimeBackend as WasmRuntimeBackend;
-pub use SimpleRuntimeBackend as EbpfRuntimeBackend;
+pub use StubRuntimeBackend as WasmRuntimeBackend;
+pub use StubRuntimeBackend as EbpfRuntimeBackend;
 
 /// Legacy RuntimeBackend trait (simplified)
 pub trait RuntimeBackend {
@@ -87,7 +88,7 @@ pub trait RuntimeBackend {
     fn name(&self) -> &str;
 }
 
-impl RuntimeBackend for SimpleRuntimeBackend {
+impl RuntimeBackend for StubRuntimeBackend {
     fn name(&self) -> &str {
         "Simplified Runtime Backend"
     }

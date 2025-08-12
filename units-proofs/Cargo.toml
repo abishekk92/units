@@ -24,4 +24,3 @@ tempfile.workspace = true
 
 [features]
 default = []
-all = []

@@ -1,9 +1,9 @@
 pub mod engine;
-pub mod simple_proof;
+pub mod hash_proof;
 
 // Re-export the main types for convenience
 pub use engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof, VerificationResult};
-pub use simple_proof::SimpleProofEngine;
+pub use hash_proof::HashProofEngine;
 
 // Helper functions
 pub mod proofs {

@@ -12,7 +12,7 @@ use units_core::transaction::{
 use units_proofs::SlotNumber;
 
 use crate::runtime::Runtime;
-use crate::runtime_backend::{RuntimeBackendManager, SimpleRuntimeBackend};
+use crate::runtime_backend::{RuntimeBackendManager, StubRuntimeBackend};
 use units_storage_impl::storage_traits::{ReceiptIterator};
 
 /// Mock implementation of the Runtime trait for testing purposes
@@ -33,7 +33,7 @@ impl MockRuntime {
     /// Create a new MockRuntime
     pub fn new() -> Self {
         // Create a runtime backend manager with default backends
-        let backend_manager = SimpleRuntimeBackend::new();
+        let backend_manager = StubRuntimeBackend::new();
 
         Self {
             transactions: HashMap::new(),
@@ -278,7 +278,7 @@ impl Clone for MockRuntime {
             transactions: self.transactions.clone(),
             receipts: self.receipts.clone(),
             current_slot: self.current_slot,
-            backend_manager: SimpleRuntimeBackend::new(), // Create a new simplified backend
+            backend_manager: StubRuntimeBackend::new(), // Create a new stub backend
             objects: self.objects.clone(),
         }
     }

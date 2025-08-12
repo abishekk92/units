@@ -25,4 +25,3 @@ sqlx = { workspace = true, optional = true }
 [features]
 default = []
 sqlite = ["dep:sqlx"]
-all = ["sqlite"]
