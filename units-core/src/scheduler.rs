@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use crate::id::UnitsObjectId;
-use crate::locks::AccessIntent;
 use crate::transaction::{ConflictResult, Transaction};
 
 /// Trait for transaction conflict checking
@@ -20,34 +19,20 @@ pub trait ConflictChecker {
     ) -> Result<ConflictResult, String>;
 
     /// Check if a transaction is read-only
-    ///
-    /// # Parameters
-    /// * `transaction` - The transaction to check
-    ///
-    /// # Returns
-    /// True if the transaction is read-only
-    fn is_read_only(&self, transaction: &Transaction) -> bool {
-        transaction.instructions.iter().all(|i| {
-            i.object_intents
-                .iter()
-                .all(|(_, intent)| *intent == AccessIntent::Read)
-        })
+    /// TODO: Implement with new instruction model - need to determine read vs write intent
+    fn is_read_only(&self, _transaction: &Transaction) -> bool {
+        // For now, assume all transactions can modify objects
+        false
     }
 
-    /// Extract object IDs with write intent from a transaction
-    ///
-    /// # Parameters
-    /// * `transaction` - The transaction to analyze
-    ///
-    /// # Returns
-    /// A HashSet of object IDs that the transaction intends to write to
+    /// Extract object IDs that a transaction might modify
+    /// TODO: Implement with new instruction model - need to determine which objects are written vs read
     fn extract_write_objects(&self, transaction: &Transaction) -> HashSet<UnitsObjectId> {
         let mut write_objects = HashSet::new();
         for instruction in &transaction.instructions {
-            for (obj_id, intent) in &instruction.object_intents {
-                if *intent == AccessIntent::Write {
-                    write_objects.insert(*obj_id);
-                }
+            // For now, assume all target objects might be modified
+            for obj_id in &instruction.target_objects {
+                write_objects.insert(*obj_id);
             }
         }
         write_objects
@@ -98,10 +83,10 @@ impl ConflictChecker for BasicConflictChecker {
                 continue;
             }
 
-            // Check for overlapping write intents
+            // Check for overlapping object access
             'outer: for instruction in &other_tx.instructions {
-                for (obj_id, intent) in &instruction.object_intents {
-                    if *intent == AccessIntent::Write && write_objects.contains(obj_id) {
+                for obj_id in &instruction.target_objects {
+                    if write_objects.contains(obj_id) {
                         conflicts.push(other_tx.hash);
                         break 'outer;
                     }

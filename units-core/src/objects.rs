@@ -1,108 +1,74 @@
 use crate::id::UnitsObjectId;
-use crate::transaction::RuntimeType;
 use serde::{Deserialize, Serialize};
 
-/// Defines the type of token and its ownership model
+/// VM types for executable objects
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TokenType {
-    /// The token is held directly by the holder with full control
+#[non_exhaustive]
+pub enum VMType {
+    /// RISC-V ELF shared objects (primary implementation)
+    RiscV,
+    /// WebAssembly modules (future extension)
+    Wasm,
+    /// eBPF programs (future extension)
+    Ebpf,
+    /// x86_64 native code (future extension, if needed)
     Native,
-
-    /// The token is held by a custodian on behalf of another entity
-    Custodial,
-
-    /// The token represents a proxy to another token or asset
-    Proxy,
 }
 
-/// Enum to represent different object types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Object type distinguishing data from executable objects
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ObjectType {
-    /// Standard tokenized object
-    Token,
-    /// Executable code object
-    Code,
+    /// Data object - not executable
+    Data,
+    /// Executable object with specific VM type
+    Executable(VMType),
 }
 
-/// Metadata for different object types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ObjectMetadata {
-    /// Token-specific metadata
-    Token {
-        /// Specifies how this token is held (Native, Custodial, or Proxy)
-        token_type: TokenType,
-        /// The UnitsObjectId that has authority to manage token operations
-        token_manager: UnitsObjectId,
-    },
-    /// Code-specific metadata
-    Code {
-        /// Type of runtime required to execute this code
-        runtime_type: RuntimeType,
-        /// The entrypoint function name to invoke
-        entrypoint: String,
-    },
-}
 
-/// Unified object structure for all UNITS objects
-///
-/// UnitsObject is the fundamental object in the UNITS system.
-/// It provides fields for all object types with type-specific metadata.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Unified object structure for all UNITS entities
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UnitsObject {
-    /// Unique identifier for this object
+    /// Unique identifier - how object is indexed in storage
     pub id: UnitsObjectId,
-
-    /// The UnitsObjectId of the entity who controls/owns this object
-    pub owner: UnitsObjectId,
-
-    /// Object type
+    
+    /// Immutable controller - defines mutation rules for this object
+    /// Points to another UnitsObject with ObjectType::Executable
+    pub controller_id: UnitsObjectId,
+    
+    /// Object type - data or executable with VM specification
     pub object_type: ObjectType,
-
-    /// Type-specific metadata
-    pub metadata: ObjectMetadata,
-
-    /// Arbitrary binary data associated with this object
+    
+    /// Object payload: ELF/WASM/eBPF bytecode or arbitrary data
     pub data: Vec<u8>,
 }
 
 impl UnitsObject {
-    /// Create a new token object
-    pub fn new_token(
+    /// Create a new data object
+    pub fn new_data(
         id: UnitsObjectId,
-        owner: UnitsObjectId,
-        token_type: TokenType,
-        token_manager: UnitsObjectId,
+        controller_id: UnitsObjectId,
         data: Vec<u8>,
     ) -> Self {
         Self {
             id,
-            owner,
-            object_type: ObjectType::Token,
-            metadata: ObjectMetadata::Token {
-                token_type,
-                token_manager,
-            },
+            controller_id,
+            object_type: ObjectType::Data,
             data,
         }
     }
 
-    /// Create a new code object
-    pub fn new_code(
+    /// Create a new executable object (kernel module)
+    pub fn new_executable(
         id: UnitsObjectId,
-        owner: UnitsObjectId,
-        code: Vec<u8>,
-        runtime_type: RuntimeType,
-        entrypoint: String,
+        controller_id: UnitsObjectId,
+        vm_type: VMType,
+        bytecode: Vec<u8>,
     ) -> Self {
         Self {
             id,
-            owner,
-            object_type: ObjectType::Code,
-            metadata: ObjectMetadata::Code {
-                runtime_type,
-                entrypoint,
-            },
-            data: code,
+            controller_id,
+            object_type: ObjectType::Executable(vm_type),
+            data: bytecode,
         }
     }
 
@@ -111,54 +77,30 @@ impl UnitsObject {
         &self.id
     }
 
-    /// Get the owner/holder
-    pub fn owner(&self) -> &UnitsObjectId {
-        &self.owner
+    /// Get the controller ID
+    pub fn controller_id(&self) -> &UnitsObjectId {
+        &self.controller_id
     }
 
-    /// Get the data/code
+    /// Get the object data
     pub fn data(&self) -> &[u8] {
         &self.data
     }
 
-    /// Check if this is a token object
-    pub fn is_token(&self) -> bool {
-        matches!(self.object_type, ObjectType::Token)
+    /// Check if this is a data object
+    pub fn is_data(&self) -> bool {
+        matches!(self.object_type, ObjectType::Data)
     }
 
-    /// Check if this is a code object
-    pub fn is_code(&self) -> bool {
-        matches!(self.object_type, ObjectType::Code)
+    /// Check if this is an executable object
+    pub fn is_executable(&self) -> bool {
+        matches!(self.object_type, ObjectType::Executable(_))
     }
 
-    /// Get token type if this is a token object
-    pub fn token_type(&self) -> Option<TokenType> {
-        match &self.metadata {
-            ObjectMetadata::Token { token_type, .. } => Some(*token_type),
-            _ => None,
-        }
-    }
-
-    /// Get token manager if this is a token object
-    pub fn token_manager(&self) -> Option<&UnitsObjectId> {
-        match &self.metadata {
-            ObjectMetadata::Token { token_manager, .. } => Some(token_manager),
-            _ => None,
-        }
-    }
-
-    /// Get runtime type if this is a code object
-    pub fn runtime_type(&self) -> Option<RuntimeType> {
-        match &self.metadata {
-            ObjectMetadata::Code { runtime_type, .. } => Some(*runtime_type),
-            _ => None,
-        }
-    }
-
-    /// Get entrypoint if this is a code object
-    pub fn entrypoint(&self) -> Option<&str> {
-        match &self.metadata {
-            ObjectMetadata::Code { entrypoint, .. } => Some(entrypoint),
+    /// Get VM type if this is an executable object
+    pub fn vm_type(&self) -> Option<VMType> {
+        match &self.object_type {
+            ObjectType::Executable(vm_type) => Some(*vm_type),
             _ => None,
         }
     }
@@ -167,57 +109,67 @@ impl UnitsObject {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transaction::RuntimeType;
 
     #[test]
-    fn test_token_object() {
-        // Create an ID for testing
+    fn test_data_object() {
+        // Create IDs for testing
         let id = UnitsObjectId::new([1; 32]);
-        let owner = UnitsObjectId::new([2; 32]);
-        let token_manager = UnitsObjectId::new([3; 32]);
+        let controller_id = UnitsObjectId::new([2; 32]);
         let data = vec![0, 1, 2, 3, 4];
 
-        // Create a token object
-        let token_obj =
-            UnitsObject::new_token(id, owner, TokenType::Native, token_manager, data.clone());
+        // Create a data object
+        let data_obj = UnitsObject::new_data(id, controller_id, data.clone());
 
         // Check type and accessors
-        assert!(token_obj.is_token());
-        assert!(!token_obj.is_code());
-        assert_eq!(token_obj.token_type(), Some(TokenType::Native));
-        assert_eq!(token_obj.token_manager(), Some(&token_manager));
-        assert_eq!(token_obj.runtime_type(), None);
-        assert_eq!(token_obj.entrypoint(), None);
-        assert_eq!(token_obj.data(), &data);
-        assert_eq!(token_obj.id(), &id);
-        assert_eq!(token_obj.owner(), &owner);
+        assert!(data_obj.is_data());
+        assert!(!data_obj.is_executable());
+        assert_eq!(data_obj.vm_type(), None);
+        assert_eq!(data_obj.data(), &data);
+        assert_eq!(data_obj.id(), &id);
+        assert_eq!(data_obj.controller_id(), &controller_id);
     }
 
     #[test]
-    fn test_code_object() {
-        // Create an ID for testing
+    fn test_executable_object() {
+        // Create IDs for testing
         let id = UnitsObjectId::new([1; 32]);
-        let owner = UnitsObjectId::new([2; 32]);
-        let code = vec![0, 1, 2, 3, 4];
+        let controller_id = UnitsObjectId::new([2; 32]);
+        let bytecode = vec![0x7f, 0x45, 0x4c, 0x46]; // ELF magic bytes
 
-        // Create a code object
-        let code_obj = UnitsObject::new_code(
+        // Create an executable object
+        let exec_obj = UnitsObject::new_executable(
             id,
-            owner,
-            code.clone(),
-            RuntimeType::Wasm,
-            "main".to_string(),
+            controller_id,
+            VMType::RiscV,
+            bytecode.clone(),
         );
 
         // Check type and accessors
-        assert!(!code_obj.is_token());
-        assert!(code_obj.is_code());
-        assert_eq!(code_obj.token_type(), None);
-        assert_eq!(code_obj.token_manager(), None);
-        assert_eq!(code_obj.runtime_type(), Some(RuntimeType::Wasm));
-        assert_eq!(code_obj.entrypoint(), Some("main"));
-        assert_eq!(code_obj.data(), &code);
-        assert_eq!(code_obj.id(), &id);
-        assert_eq!(code_obj.owner(), &owner);
+        assert!(!exec_obj.is_data());
+        assert!(exec_obj.is_executable());
+        assert_eq!(exec_obj.vm_type(), Some(VMType::RiscV));
+        assert_eq!(exec_obj.data(), &bytecode);
+        assert_eq!(exec_obj.id(), &id);
+        assert_eq!(exec_obj.controller_id(), &controller_id);
+    }
+
+    #[test]
+    fn test_vm_types() {
+        // Test all VM types
+        let id = UnitsObjectId::new([1; 32]);
+        let controller_id = UnitsObjectId::new([2; 32]);
+        let bytecode = vec![1, 2, 3, 4];
+
+        let riscv_obj = UnitsObject::new_executable(id, controller_id, VMType::RiscV, bytecode.clone());
+        assert_eq!(riscv_obj.vm_type(), Some(VMType::RiscV));
+
+        let wasm_obj = UnitsObject::new_executable(id, controller_id, VMType::Wasm, bytecode.clone());
+        assert_eq!(wasm_obj.vm_type(), Some(VMType::Wasm));
+
+        let ebpf_obj = UnitsObject::new_executable(id, controller_id, VMType::Ebpf, bytecode.clone());
+        assert_eq!(ebpf_obj.vm_type(), Some(VMType::Ebpf));
+
+        let native_obj = UnitsObject::new_executable(id, controller_id, VMType::Native, bytecode);
+        assert_eq!(native_obj.vm_type(), Some(VMType::Native));
     }
 }

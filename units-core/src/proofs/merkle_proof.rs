@@ -201,24 +201,21 @@ impl MerkleTree {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"LEAF:");
         hasher.update(object.id().as_ref());
-        hasher.update(object.owner().as_ref());
+        hasher.update(object.controller_id().as_ref());
         
         // Add type-specific data based on object type
-        match &object.metadata {
-            crate::objects::ObjectMetadata::Token { token_type, token_manager } => {
-                hasher.update(token_manager.as_ref());
-                hasher.update(&[match token_type {
-                    crate::objects::TokenType::Native => 0,
-                    crate::objects::TokenType::Custodial => 1,
-                    crate::objects::TokenType::Proxy => 2,
-                }]);
+        match &object.object_type {
+            crate::objects::ObjectType::Data => {
+                hasher.update(&[0u8]); // Data type marker
             },
-            crate::objects::ObjectMetadata::Code { runtime_type, entrypoint } => {
-                hasher.update(&[match runtime_type {
-                    crate::transaction::RuntimeType::Wasm => 1,
-                    crate::transaction::RuntimeType::Ebpf => 2,
+            crate::objects::ObjectType::Executable(vm_type) => {
+                hasher.update(&[1u8]); // Executable type marker
+                hasher.update(&[match vm_type {
+                    crate::objects::VMType::RiscV => 1,
+                    crate::objects::VMType::Wasm => 2,
+                    crate::objects::VMType::Ebpf => 3,
+                    crate::objects::VMType::Native => 4,
                 }]);
-                hasher.update(entrypoint.as_bytes());
             },
         }
         hasher.update(object.data());
@@ -613,19 +610,16 @@ impl ProofEngine for MerkleProofEngine {
 mod tests {
     use super::*;
     use crate::id::UnitsObjectId;
-    use crate::objects::{TokenType, UnitsObject};
+    use crate::objects::{UnitsObject};
 
     #[test]
     fn test_merkle_proof_basic() {
         // Create a test object
         let id = UnitsObjectId::unique_id_for_tests();
-        let owner = UnitsObjectId::unique_id_for_tests();
-        let token_manager = UnitsObjectId::unique_id_for_tests();
-        let obj = UnitsObject::new_token(
+        let controller_id = UnitsObjectId::unique_id_for_tests();
+        let obj = UnitsObject::new_data(
             id,
-            owner,
-            TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4],
         );
 
@@ -647,11 +641,9 @@ mod tests {
         assert!(tree.verify_proof(&deserialized));
 
         // Modify the object and verify the proof fails
-        let modified_obj = UnitsObject::new_token(
+        let modified_obj = UnitsObject::new_data(
             *obj.id(),
-            *obj.owner(),
-            TokenType::Native,
-            token_manager,
+            *obj.controller_id(),
             vec![5, 6, 7, 8],
         );
 
@@ -665,13 +657,10 @@ mod tests {
         use crate::proofs::current_slot;
         // Create a test object
         let id = crate::id::UnitsObjectId::unique_id_for_tests();
-        let owner = crate::id::UnitsObjectId::unique_id_for_tests();
-        let token_manager = crate::id::UnitsObjectId::unique_id_for_tests();
-        let obj = UnitsObject::new_token(
+        let controller_id = crate::id::UnitsObjectId::unique_id_for_tests();
+        let obj = UnitsObject::new_data(
             id,
-            owner,
-            TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4],
         );
 
@@ -689,11 +678,9 @@ mod tests {
         assert!(engine.verify_object_proof(&obj, &proof).unwrap());
 
         // Modify the object and verify the proof fails
-        let modified_obj = UnitsObject::new_token(
+        let modified_obj = UnitsObject::new_data(
             *obj.id(),
-            *obj.owner(),
-            TokenType::Native,
-            token_manager,
+            *obj.controller_id(),
             vec![5, 6, 7, 8],
         );
 
@@ -723,10 +710,8 @@ mod tests {
         // Create 5 objects with different data
         for i in 0..5 {
             let id = UnitsObjectId::unique_id_for_tests();
-            let obj = UnitsObject::new_token(
+            let obj = UnitsObject::new_data(
                 id,
-                UnitsObjectId::unique_id_for_tests(),
-                TokenType::Native,
                 UnitsObjectId::unique_id_for_tests(),
                 vec![i as u8, (i + 1) as u8, (i + 2) as u8],
             );
@@ -750,11 +735,9 @@ mod tests {
             assert!(engine.verify_object_proof(obj, proof).unwrap());
 
             // Create a modified version of the object
-            let modified_obj = UnitsObject::new_token(
+            let modified_obj = UnitsObject::new_data(
                 *obj.id(),
-                *obj.owner(),
-                TokenType::Native,
-                *obj.token_manager().unwrap(),
+                *obj.controller_id(),
                 vec![99, 100, 101], // completely different data
             );
 

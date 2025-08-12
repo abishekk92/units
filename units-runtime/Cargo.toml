@@ -19,6 +19,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
 chrono.workspace = true
+rvsim = "0.2.2"
 
 [dev-dependencies]
 tempfile.workspace = true

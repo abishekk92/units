@@ -1,10 +1,12 @@
 pub mod host_environment;
 pub mod mock_runtime;
 pub mod receipt_storage;
+pub mod riscv_executor;
 pub mod runtime;
 pub mod runtime_backend;
 pub mod transaction_manager;
 pub mod verification;
+pub mod vm_executor;
 
 // Re-export the main types for convenience
 pub use runtime::Runtime;
@@ -34,3 +36,7 @@ pub use mock_runtime::{InMemoryReceiptStorage, MockRuntime};
 
 // Re-export VerificationResult from units-proofs
 pub use units_core::proofs::VerificationResult;
+
+// Re-export VM executor types
+pub use vm_executor::{ExecutionContext, ObjectEffect, VMExecutionError, VMExecutor};
+pub use riscv_executor::{RiscVExecutor, RiscVExecutorConfig};

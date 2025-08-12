@@ -1,5 +1,5 @@
 use crate::id::UnitsObjectId;
-use crate::locks::{AccessIntent, ObjectLockGuard, PersistentLockManager};
+use crate::locks::{ObjectLockGuard, PersistentLockManager};
 use crate::objects::UnitsObject;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -59,121 +59,57 @@ impl Default for RuntimeType {
 /// that programs can be executed seamlessly regardless of runtime type.
 pub const STANDARD_ENTRYPOINT: &str = "main";
 
-/// A structure representing an instruction within a transaction
+/// Transaction instruction - call into controller entrypoint with target function
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instruction {
-    /// Parameters for this instruction (arguments, not code)
+    /// The controller kernel module to execute
+    pub controller_id: UnitsObjectId,
+    
+    /// Target function name within the controller (e.g., "transfer", "mint")
+    pub target_function: String,
+    
+    /// Objects this instruction will read/modify (all objects controller needs access to)
+    pub target_objects: Vec<UnitsObjectId>,
+    
+    /// Parameters for the specific function call
     pub params: Vec<u8>,
-
-    /// Runtime type for this instruction (added for consistency across backends)
-    /// When not explicitly set, it's derived from instruction_type
-    #[serde(default = "Instruction::default_runtime_type")]
-    pub runtime_type: RuntimeType,
-
-    /// The objects this instruction intends to access and their access intents
-    pub object_intents: Vec<(UnitsObjectId, AccessIntent)>,
-
-    /// The ID of the code object to execute
-    /// All code execution must come from a verified code object for security
-    pub code_object_id: UnitsObjectId,
 }
 
 impl Instruction {
-    /// Default runtime type derived from instruction_type
-    fn default_runtime_type() -> RuntimeType {
-        RuntimeType::Wasm
-    }
-
-    /// Create a new instruction with the specified runtime type
+    /// Create a new instruction
     pub fn new(
+        controller_id: UnitsObjectId,
+        target_function: String,
+        target_objects: Vec<UnitsObjectId>,
         params: Vec<u8>,
-        runtime_type: RuntimeType,
-        object_intents: Vec<(UnitsObjectId, AccessIntent)>,
-        code_object_id: UnitsObjectId,
     ) -> Self {
         Self {
+            controller_id,
+            target_function,
+            target_objects,
             params,
-            runtime_type,
-            object_intents,
-            code_object_id,
         }
     }
 
-    /// Get the effective entrypoint for this instruction
-    pub fn entrypoint(&self) -> &str {
-        STANDARD_ENTRYPOINT
+
+    /// Get all target objects for this instruction
+    pub fn target_objects(&self) -> &[UnitsObjectId] {
+        &self.target_objects
     }
 
-    /// Create a new WebAssembly instruction
-    pub fn wasm(
-        params: Vec<u8>,
-        object_intents: Vec<(UnitsObjectId, AccessIntent)>,
-        code_object_id: UnitsObjectId,
-    ) -> Self {
-        Self::new(params, RuntimeType::Wasm, object_intents, code_object_id)
+    /// Get the controller ID for this instruction
+    pub fn controller_id(&self) -> &UnitsObjectId {
+        &self.controller_id
     }
 
-
-    /// Acquire all locks needed for this instruction
-    ///
-    /// This acquires locks for all objects according to their access intents.
-    /// Read intents acquire shared read locks, while write intents acquire exclusive write locks.
-    ///
-    /// # Parameters
-    /// * `transaction_hash` - The hash of the transaction acquiring the locks
-    /// * `lock_manager` - The persistent lock manager to use
-    ///
-    /// # Returns
-    /// A vector of lock guards or errors for each lock attempt
-    pub fn acquire_locks<'a, M: PersistentLockManager>(
-        &self,
-        transaction_hash: &TransactionHash,
-        lock_manager: &'a M,
-    ) -> Vec<Result<ObjectLockGuard<'a, M>, M::Error>> {
-        self.object_intents
-            .iter()
-            .map(|(object_id, intent)| {
-                intent.acquire_lock(object_id, transaction_hash, lock_manager)
-            })
-            .collect()
+    /// Get the target function name
+    pub fn target_function(&self) -> &str {
+        &self.target_function
     }
 
-    /// Check if all locks needed for this instruction can be acquired
-    ///
-    /// # Parameters
-    /// * `transaction_hash` - The hash of the transaction checking lock availability
-    /// * `lock_manager` - The persistent lock manager to use
-    ///
-    /// # Returns
-    /// True if all locks can be acquired, false otherwise
-    pub fn can_acquire_locks<M: PersistentLockManager>(
-        &self,
-        transaction_hash: &TransactionHash,
-        lock_manager: &M,
-    ) -> Result<bool, M::Error> {
-        for (object_id, intent) in &self.object_intents {
-            match lock_manager.can_acquire_lock(object_id, *intent, transaction_hash) {
-                Ok(false) => return Ok(false),
-                Err(e) => return Err(e),
-                _ => continue,
-            }
-        }
-
-        Ok(true)
-    }
-
-    /// Create in-memory locks for testing
-    #[cfg(test)]
-    pub fn create_in_memory_locks<M: PersistentLockManager>(
-        &self,
-        transaction_hash: &TransactionHash,
-    ) -> Vec<ObjectLockGuard<'static, M>> {
-        self.object_intents
-            .iter()
-            .map(|(object_id, intent)| {
-                intent.create_in_memory_lock::<M>(object_id, transaction_hash)
-            })
-            .collect()
+    /// Get the parameters for this instruction
+    pub fn params(&self) -> &[u8] {
+        &self.params
     }
 }
 
@@ -216,64 +152,14 @@ impl Transaction {
     }
 
     /// Acquire all locks needed for this transaction
-    ///
-    /// This acquires locks for all objects according to their access intents in all instructions.
-    /// Read intents acquire shared read locks, while write intents acquire exclusive write locks.
-    ///
-    /// # Parameters
-    /// * `lock_manager` - The persistent lock manager to use
-    ///
-    /// # Returns
-    /// A result containing a vector of lock guards if all locks were acquired successfully,
-    /// or an error if any lock could not be acquired
+    /// TODO: Implement with new object model - requires access intent information
     pub fn acquire_locks<'a, M: PersistentLockManager>(
         &self,
-        lock_manager: &'a M,
+        _lock_manager: &'a M,
     ) -> Result<Vec<ObjectLockGuard<'a, M>>, M::Error> {
-        let mut locks = Vec::new();
-        let mut locked_objects = std::collections::HashMap::new();
-
-        for instruction in &self.instructions {
-            for (object_id, intent) in &instruction.object_intents {
-                // Check if we've already locked this object
-                if let Some(existing_intent) = locked_objects.get(object_id) {
-                    // If we already have a write lock, or if we only need a read lock, skip
-                    if *existing_intent == AccessIntent::Write || *intent == AccessIntent::Read {
-                        continue;
-                    }
-                    // Otherwise we had a read lock but need a write lock - upgrade needed
-
-                    // Release the read lock first (find it in our locks and remove it)
-                    if let Some(position) = locks
-                        .iter()
-                        .position(|lock: &ObjectLockGuard<'a, M>| lock.object_id() == object_id)
-                    {
-                        let mut lock = locks.remove(position);
-                        if let Err(e) = lock.release() {
-                            // If we can't release the read lock, we can't upgrade
-                            return Err(e);
-                        }
-                    }
-                }
-
-                // Acquire the lock
-                match intent.acquire_lock(object_id, &self.hash, lock_manager) {
-                    Ok(lock) => {
-                        locks.push(lock);
-                        locked_objects.insert(*object_id, *intent);
-                    }
-                    Err(e) => {
-                        // Release all locks we've acquired so far
-                        for lock in &mut locks {
-                            let _ = lock.release(); // Ignore errors during cleanup
-                        }
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
-        Ok(locks)
+        // TODO: Implement lock acquisition with new instruction model
+        // New model doesn't have object_intents, need to determine access patterns differently
+        Ok(Vec::new())
     }
 
     /// Execute the transaction with automatic lock acquisition and release
@@ -309,69 +195,20 @@ impl Transaction {
     }
 
     /// Create in-memory locks for testing
+    /// TODO: Implement with new object model
     #[cfg(test)]
     pub fn create_in_memory_locks<M: PersistentLockManager>(
         &self,
     ) -> Vec<ObjectLockGuard<'static, M>> {
-        let mut locks = Vec::new();
-        let mut locked_objects = std::collections::HashMap::new();
-
-        for instruction in &self.instructions {
-            for (object_id, intent) in &instruction.object_intents {
-                // Check if we've already locked this object
-                if let Some(existing_intent) = locked_objects.get(object_id) {
-                    // If we already have a write lock, or if we only need a read lock, skip
-                    if *existing_intent == AccessIntent::Write || *intent == AccessIntent::Read {
-                        continue;
-                    }
-                }
-
-                // Create in-memory lock
-                locks.push(intent.create_in_memory_lock::<M>(object_id, &self.hash));
-                // Remember what we locked
-                locked_objects.insert(*object_id, *intent);
-            }
-        }
-
-        locks
+        Vec::new()
     }
 
     /// Check if all locks needed for this transaction can be acquired
-    ///
-    /// # Parameters
-    /// * `lock_manager` - The persistent lock manager to use
-    ///
-    /// # Returns
-    /// True if all locks can be acquired, false otherwise
+    /// TODO: Implement with new object model
     pub fn can_acquire_all_locks<M: PersistentLockManager>(
         &self,
-        lock_manager: &M,
+        _lock_manager: &M,
     ) -> Result<bool, M::Error> {
-        let mut locked_objects = std::collections::HashMap::new();
-
-        for instruction in &self.instructions {
-            for (object_id, intent) in &instruction.object_intents {
-                // Check if we've already checked this object
-                if let Some(existing_intent) = locked_objects.get(object_id) {
-                    // If we already have a write lock, or if we only need a read lock, skip
-                    if *existing_intent == AccessIntent::Write || *intent == AccessIntent::Read {
-                        continue;
-                    }
-                    // Otherwise we need to upgrade from read to write - check if we can
-                }
-
-                // Check if we can acquire the lock
-                match lock_manager.can_acquire_lock(object_id, *intent, &self.hash) {
-                    Ok(false) => return Ok(false),
-                    Err(e) => return Err(e),
-                    Ok(true) => {
-                        // Remember what we checked
-                        locked_objects.insert(*object_id, *intent);
-                    }
-                }
-            }
-        }
-
         Ok(true)
     }
 }
@@ -601,31 +438,24 @@ impl TransactionReceipt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::objects::{UnitsObject, TokenType};
+    use crate::objects::{UnitsObject, VMType};
     use crate::id::UnitsObjectId;
     
     #[test]
     fn test_transaction_effect() {
         // Create an ID for testing
         let id = UnitsObjectId::new([1; 32]);
-        let owner = UnitsObjectId::new([2; 32]);
-        let token_manager = UnitsObjectId::new([3; 32]);
+        let controller_id = UnitsObjectId::new([2; 32]);
         let data = vec![0, 1, 2, 3, 4];
         let transaction_hash = [4; 32];
         
-        // Create a token object
-        let token_obj = UnitsObject::new_token(
-            id,
-            owner,
-            TokenType::Native,
-            token_manager,
-            data.clone(),
-        );
+        // Create a data object
+        let data_obj = UnitsObject::new_data(id, controller_id, data.clone());
         
-        // Create a token creation effect
+        // Create an object creation effect
         let creation_effect = TransactionEffect::new_creation(
             transaction_hash,
-            token_obj.clone(),
+            data_obj.clone(),
         );
         
         // Check the effect properties
@@ -638,13 +468,12 @@ mod tests {
         assert!(creation_effect.after_image.is_some());
         
         // Create a modified object
-        let mut modified_obj = token_obj.clone();
-        modified_obj.data = vec![5, 6, 7, 8, 9];
+        let modified_obj = UnitsObject::new_data(id, controller_id, vec![5, 6, 7, 8, 9]);
         
         // Create a modification effect
         let modification_effect = TransactionEffect::new_modification(
             transaction_hash,
-            token_obj.clone(),
+            data_obj.clone(),
             modified_obj.clone(),
         );
         
@@ -656,7 +485,7 @@ mod tests {
         // Create a deletion effect
         let deletion_effect = TransactionEffect::new_deletion(
             transaction_hash,
-            token_obj.clone(),
+            data_obj.clone(),
         );
         
         // Check the effect properties
@@ -669,26 +498,18 @@ mod tests {
     fn test_transaction_receipt() {
         // Create an ID for testing
         let id = UnitsObjectId::new([1; 32]);
-        let owner = UnitsObjectId::new([2; 32]);
-        let token_manager = UnitsObjectId::new([3; 32]);
+        let controller_id = UnitsObjectId::new([2; 32]);
         let data = vec![0, 1, 2, 3, 4];
         let transaction_hash = [4; 32];
         
         // Create objects
-        let token_obj = UnitsObject::new_token(
-            id,
-            owner,
-            TokenType::Native,
-            token_manager,
-            data.clone(),
-        );
+        let data_obj = UnitsObject::new_data(id, controller_id, data.clone());
         
-        let code_obj = UnitsObject::new_code(
+        let exec_obj = UnitsObject::new_executable(
             id,
-            owner,
+            controller_id,
+            VMType::Wasm,
             data.clone(),
-            crate::transaction::RuntimeType::Wasm,
-            "main".to_string(),
         );
         
         // Create a transaction receipt
@@ -699,24 +520,24 @@ mod tests {
             56789, // timestamp
         );
         
-        // Add a token creation effect
+        // Add an object creation effect
         receipt.add_object_effect(
             transaction_hash,
             id,
             None,
-            Some(token_obj.clone()),
+            Some(data_obj.clone()),
         );
         
         // Check the receipt contains the effect
         assert_eq!(receipt.effect_count(), 1);
         assert_eq!(receipt.effects.len(), 1);
         
-        // Add a modification effect (token to code)
+        // Add a modification effect (data to executable)
         receipt.add_object_effect(
             transaction_hash,
             id,
-            Some(token_obj.clone()),
-            Some(code_obj.clone()),
+            Some(data_obj.clone()),
+            Some(exec_obj.clone()),
         );
         
         // Check that we have two effects
