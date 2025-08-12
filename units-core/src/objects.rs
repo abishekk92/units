@@ -7,12 +7,6 @@ use serde::{Deserialize, Serialize};
 pub enum VMType {
     /// RISC-V ELF shared objects (primary implementation)
     RiscV,
-    /// WebAssembly modules (future extension)
-    Wasm,
-    /// eBPF programs (future extension)
-    Ebpf,
-    /// x86_64 native code (future extension, if needed)
-    Native,
 }
 
 /// Object type distinguishing data from executable objects
@@ -24,31 +18,26 @@ pub enum ObjectType {
     Executable(VMType),
 }
 
-
 /// Unified object structure for all UNITS entities
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UnitsObject {
     /// Unique identifier - how object is indexed in storage
     pub id: UnitsObjectId,
-    
+
     /// Immutable controller - defines mutation rules for this object
     /// Points to another UnitsObject with ObjectType::Executable
     pub controller_id: UnitsObjectId,
-    
+
     /// Object type - data or executable with VM specification
     pub object_type: ObjectType,
-    
+
     /// Object payload: ELF/WASM/eBPF bytecode or arbitrary data
     pub data: Vec<u8>,
 }
 
 impl UnitsObject {
     /// Create a new data object
-    pub fn new_data(
-        id: UnitsObjectId,
-        controller_id: UnitsObjectId,
-        data: Vec<u8>,
-    ) -> Self {
+    pub fn new_data(id: UnitsObjectId, controller_id: UnitsObjectId, data: Vec<u8>) -> Self {
         Self {
             id,
             controller_id,
@@ -137,12 +126,8 @@ mod tests {
         let bytecode = vec![0x7f, 0x45, 0x4c, 0x46]; // ELF magic bytes
 
         // Create an executable object
-        let exec_obj = UnitsObject::new_executable(
-            id,
-            controller_id,
-            VMType::RiscV,
-            bytecode.clone(),
-        );
+        let exec_obj =
+            UnitsObject::new_executable(id, controller_id, VMType::RiscV, bytecode.clone());
 
         // Check type and accessors
         assert!(!exec_obj.is_data());
@@ -155,21 +140,14 @@ mod tests {
 
     #[test]
     fn test_vm_types() {
-        // Test all VM types
+        // Test RISC-V VM type (only supported type)
         let id = UnitsObjectId::new([1; 32]);
         let controller_id = UnitsObjectId::new([2; 32]);
         let bytecode = vec![1, 2, 3, 4];
 
-        let riscv_obj = UnitsObject::new_executable(id, controller_id, VMType::RiscV, bytecode.clone());
+        let riscv_obj = UnitsObject::new_executable(id, controller_id, VMType::RiscV, bytecode);
         assert_eq!(riscv_obj.vm_type(), Some(VMType::RiscV));
-
-        let wasm_obj = UnitsObject::new_executable(id, controller_id, VMType::Wasm, bytecode.clone());
-        assert_eq!(wasm_obj.vm_type(), Some(VMType::Wasm));
-
-        let ebpf_obj = UnitsObject::new_executable(id, controller_id, VMType::Ebpf, bytecode.clone());
-        assert_eq!(ebpf_obj.vm_type(), Some(VMType::Ebpf));
-
-        let native_obj = UnitsObject::new_executable(id, controller_id, VMType::Native, bytecode);
-        assert_eq!(native_obj.vm_type(), Some(VMType::Native));
+        assert!(riscv_obj.is_executable());
+        assert!(!riscv_obj.is_data());
     }
 }

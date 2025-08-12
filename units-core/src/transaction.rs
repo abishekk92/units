@@ -491,7 +491,7 @@ mod tests {
         let exec_obj = UnitsObject::new_executable(
             id,
             controller_id,
-            VMType::Wasm,
+            VMType::RiscV,
             data.clone(),
         );
         

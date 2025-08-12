@@ -394,10 +394,7 @@ impl SqliteStorage {
             ObjectType::Data => 0,
             ObjectType::Executable(vm_type) => match vm_type {
                 VMType::RiscV => 1,
-                VMType::Wasm => 2,
-                VMType::Ebpf => 3,
-                VMType::Native => 4,
-                _ => 5, // Future VM types
+                _ => 1, // Future VM types default to RiscV encoding
             },
         }
     }
@@ -407,10 +404,8 @@ impl SqliteStorage {
         match value {
             0 => Ok(ObjectType::Data),
             1 => Ok(ObjectType::Executable(VMType::RiscV)),
-            2 => Ok(ObjectType::Executable(VMType::Wasm)),
-            3 => Ok(ObjectType::Executable(VMType::Ebpf)),
-            4 => Ok(ObjectType::Executable(VMType::Native)),
-            5 => Ok(ObjectType::Executable(VMType::RiscV)), // Default for future VM types
+            // Legacy VM types from old database entries - map to RiscV
+            2 | 3 | 4 | 5 => Ok(ObjectType::Executable(VMType::RiscV)),
             _ => Err(format!("Invalid object type value: {}", value)),
         }
     }

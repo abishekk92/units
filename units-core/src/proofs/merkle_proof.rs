@@ -212,9 +212,6 @@ impl MerkleTree {
                 hasher.update(&[1u8]); // Executable type marker
                 hasher.update(&[match vm_type {
                     crate::objects::VMType::RiscV => 1,
-                    crate::objects::VMType::Wasm => 2,
-                    crate::objects::VMType::Ebpf => 3,
-                    crate::objects::VMType::Native => 4,
                 }]);
             },
         }

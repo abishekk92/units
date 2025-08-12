@@ -72,7 +72,7 @@ impl Runtime for MockRuntime {
     fn get_vm_executor(&self, vm_type: VMType) -> Option<Box<dyn VMExecutor>> {
         match vm_type {
             VMType::RiscV => Some(Box::new(RiscVExecutor::new())),
-            _ => None, // Only RISC-V supported in mock for now
+            _ => Some(Box::new(RiscVExecutor::new())), // Future VM types default to RiscV
         }
     }
 
