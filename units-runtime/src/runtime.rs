@@ -56,10 +56,10 @@ pub trait Runtime {
     ) -> Result<HashMap<UnitsObjectId, UnitsObject>, ExecutionError> {
         // Create an instruction
         let instruction = Instruction::new(
-            args.to_vec(),
-            self.backend_manager().default_runtime_type(),
-            vec![],
             *program_id,
+            "main".to_string(), // Default entrypoint
+            objects.keys().cloned().collect(),
+            args.to_vec(),
         );
 
         // Create execution context

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use units_core::id::UnitsObjectId;
 use units_core::objects::{UnitsObject, VMType};
-use units_core::transaction::{Instruction, TransactionHash};
+use units_core::transaction::Instruction;
 
 /// Complete context provided to controller during execution
 #[derive(Debug, Clone, Serialize, Deserialize)]

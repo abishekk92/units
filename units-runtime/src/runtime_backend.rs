@@ -135,13 +135,21 @@ impl RuntimeBackendManager {
             .ok_or_else(|| ExecutionError::ProgramNotFound(*program_id))?
             .clone();
 
-        // Check if code object and get runtime type
-        let runtime_type = program
-            .runtime_type()
+        // Check if executable object and get VM type
+        let vm_type = program
+            .vm_type()
             .ok_or_else(|| ExecutionError::InvalidProgram(*program_id))?;
+        
+        // Convert VMType to RuntimeType for compatibility
+        let runtime_type = match vm_type {
+            units_core::objects::VMType::Wasm => RuntimeType::Wasm,
+            units_core::objects::VMType::Ebpf => RuntimeType::Ebpf,
+            // For now, map other VM types to Wasm
+            _ => RuntimeType::Wasm,
+        };
 
-        // Get entrypoint
-        let entrypoint = instruction.entrypoint();
+        // Get entrypoint from instruction
+        let entrypoint = &instruction.target_function;
 
         // Get appropriate backend
         let backend = self
@@ -153,7 +161,7 @@ impl RuntimeBackendManager {
         context.entrypoint = Some(entrypoint.to_string());
 
         // Execute the program
-        match backend.execute_program(&program, entrypoint, &instruction.params, context) {
+        match backend.execute_program(&program, &entrypoint, &instruction.params, context) {
             InstructionResult::Success(objects) => Ok(objects),
             InstructionResult::Error(message) => Err(ExecutionError::ExecutionFailed(message)),
         }
@@ -209,9 +217,9 @@ impl RuntimeBackend for WasmRuntimeBackend {
         args: &[u8],
         _context: InstructionContext<'a>,
     ) -> InstructionResult {
-        // Validate program is code object
-        if !program.is_code() {
-            return InstructionResult::Error("Invalid program object - not code".to_string());
+        // Validate program is executable object
+        if !program.is_executable() {
+            return InstructionResult::Error("Invalid program object - not executable".to_string());
         }
 
         // For debugging
@@ -257,9 +265,9 @@ impl RuntimeBackend for EbpfRuntimeBackend {
         args: &[u8],
         _context: InstructionContext<'a>,
     ) -> InstructionResult {
-        // Validate program is code object
-        if !program.is_code() {
-            return InstructionResult::Error("Invalid program object - not code".to_string());
+        // Validate program is executable object
+        if !program.is_executable() {
+            return InstructionResult::Error("Invalid program object - not executable".to_string());
         }
 
         // For debugging

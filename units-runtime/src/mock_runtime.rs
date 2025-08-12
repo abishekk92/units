@@ -117,7 +117,7 @@ impl Runtime for MockRuntime {
         for instruction in transaction.instructions {
             // Load the objects this instruction needs access to
             let mut objects = HashMap::new();
-            for (object_id, _) in &instruction.object_intents {
+            for object_id in &instruction.target_objects {
                 if let Some(object) = self.objects.get(object_id) {
                     // Use the latest version of this object from our modified objects map
                     // if it's already been modified by a previous instruction in this transaction
@@ -134,7 +134,7 @@ impl Runtime for MockRuntime {
             // Mock execution for testing (just pretends all instructions succeed)
             // In a real implementation, we would use execute_program_call instead
             let mut modified_objects = HashMap::new();
-            for (object_id, _) in &instruction.object_intents {
+            for object_id in &instruction.target_objects {
                 if let Some(object) = objects.get(object_id) {
                     // We can't directly modify data since it's behind an accessor method now
                     // For a real implementation we'd need to create a new object with modified data

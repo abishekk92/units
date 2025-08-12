@@ -22,7 +22,7 @@ use std::{
 use tokio::runtime::Runtime;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
-use units_core::objects::{ObjectType, TokenType, UnitsObject};
+use units_core::objects::{ObjectType, VMType, UnitsObject};
 use units_core::transaction::{CommitmentLevel, TransactionReceipt};
 use units_core::proofs::merkle_proof::MerkleProofEngine;
 use units_core::proofs::SlotNumber;
@@ -69,7 +69,7 @@ impl AsyncSource<UnitsObject, StorageError> for SqliteObjectSource {
         
         Box::pin(async move {
             // Query a single object at the current index
-            let query = "SELECT id, holder, token_type, token_manager, data FROM objects LIMIT 1 OFFSET ?";
+            let query = "SELECT id, controller_id, object_type, data FROM objects LIMIT 1 OFFSET ?";
 
             let row = match sqlx::query(query)
                 .bind(index)
@@ -82,45 +82,48 @@ impl AsyncSource<UnitsObject, StorageError> for SqliteObjectSource {
             };
 
             let id_blob: Vec<u8> = row.get(0);
-            let holder_blob: Vec<u8> = row.get(1);
-            let token_type_int: i64 = row.get(2);
-            let token_manager_blob: Vec<u8> = row.get(3);
-            let data: Option<Vec<u8>> = row.get(4);
+            let controller_blob: Vec<u8> = row.get(1);
+            let object_type_int: i64 = row.get(2);
+            let data: Option<Vec<u8>> = row.get(3);
             let data = data.unwrap_or_default();
 
             // Convert to UnitsObjectId
             let mut id_array = [0u8; 32];
-            let mut holder_array = [0u8; 32];
-            let mut token_manager_array = [0u8; 32];
+            let mut controller_array = [0u8; 32];
 
             if id_blob.len() == 32 {
                 id_array.copy_from_slice(&id_blob);
             }
 
-            if holder_blob.len() == 32 {
-                holder_array.copy_from_slice(&holder_blob);
+            if controller_blob.len() == 32 {
+                controller_array.copy_from_slice(&controller_blob);
             }
 
-            if token_manager_blob.len() == 32 {
-                token_manager_array.copy_from_slice(&token_manager_blob);
-            }
-
-            // Convert token type
-            let _object_type = match SqliteStorage::int_to_object_type(token_type_int) {
-                Ok(tt) => tt,
+            // Convert object type
+            let object_type = match SqliteStorage::int_to_object_type(object_type_int) {
+                Ok(ot) => ot,
                 Err(e) => return Some(Err(StorageError::Other(e))),
             };
             
             // Increment the index for next fetch
             self.current_index += 1;
 
-            Some(Ok(UnitsObject::new_token(
-                UnitsObjectId::new(id_array),
-                UnitsObjectId::new(holder_array),
-                TokenType::Native, // Default to Native
-                UnitsObjectId::new(token_manager_array),
-                data,
-            )))
+            // Create the appropriate object type
+            let obj = match object_type {
+                ObjectType::Data => UnitsObject::new_data(
+                    UnitsObjectId::new(id_array),
+                    UnitsObjectId::new(controller_array),
+                    data,
+                ),
+                ObjectType::Executable(vm_type) => UnitsObject::new_executable(
+                    UnitsObjectId::new(id_array),
+                    UnitsObjectId::new(controller_array),
+                    vm_type,
+                    data,
+                ),
+            };
+
+            Some(Ok(obj))
         })
     }
 }
@@ -203,9 +206,8 @@ impl SqliteStorage {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS objects (
                 id BLOB PRIMARY KEY,
-                holder BLOB NOT NULL,
-                token_type INTEGER NOT NULL,
-                token_manager BLOB NOT NULL,
+                controller_id BLOB NOT NULL,
+                object_type INTEGER NOT NULL,
                 data BLOB
             )",
         )
@@ -318,9 +320,8 @@ impl SqliteStorage {
             "CREATE TABLE IF NOT EXISTS object_history (
                 object_id BLOB NOT NULL,
                 slot INTEGER NOT NULL,
-                holder BLOB NOT NULL,
-                token_type INTEGER NOT NULL,
-                token_manager BLOB NOT NULL,
+                controller_id BLOB NOT NULL,
+                object_type INTEGER NOT NULL,
                 data BLOB,
                 PRIMARY KEY (object_id, slot),
                 FOREIGN KEY (object_id) REFERENCES objects(id) ON DELETE CASCADE,
@@ -390,16 +391,26 @@ impl SqliteStorage {
     /// Convert ObjectType enum to integer for storage
     fn object_type_to_int(object_type: &ObjectType) -> i64 {
         match object_type {
-            ObjectType::Token => 0,
-            ObjectType::Code => 1,
+            ObjectType::Data => 0,
+            ObjectType::Executable(vm_type) => match vm_type {
+                VMType::RiscV => 1,
+                VMType::Wasm => 2,
+                VMType::Ebpf => 3,
+                VMType::Native => 4,
+                _ => 5, // Future VM types
+            },
         }
     }
 
     /// Convert integer from storage to ObjectType enum
     fn int_to_object_type(value: i64) -> Result<ObjectType, String> {
         match value {
-            0 => Ok(ObjectType::Token),
-            1 => Ok(ObjectType::Code),
+            0 => Ok(ObjectType::Data),
+            1 => Ok(ObjectType::Executable(VMType::RiscV)),
+            2 => Ok(ObjectType::Executable(VMType::Wasm)),
+            3 => Ok(ObjectType::Executable(VMType::Ebpf)),
+            4 => Ok(ObjectType::Executable(VMType::Native)),
+            5 => Ok(ObjectType::Executable(VMType::RiscV)), // Default for future VM types
             _ => Err(format!("Invalid object type value: {}", value)),
         }
     }
@@ -419,7 +430,7 @@ impl UnitsStorage for SqliteStorage {
     fn get(&self, id: &UnitsObjectId) -> Result<Option<UnitsObject>, StorageError> {
         self.rt.block_on(async {
             let query =
-                "SELECT id, holder, token_type, token_manager, data FROM objects WHERE id = ?";
+                "SELECT id, controller_id, object_type, data FROM objects WHERE id = ?";
 
             let row = sqlx::query(query)
                 .bind(id.as_ref())
@@ -434,42 +445,45 @@ impl UnitsStorage for SqliteStorage {
             let row = row.unwrap();
 
             let id_blob: Vec<u8> = row.get(0);
-            let holder_blob: Vec<u8> = row.get(1);
-            let token_type_int: i64 = row.get(2);
-            let token_manager_blob: Vec<u8> = row.get(3);
-            let data: Option<Vec<u8>> = row.get(4);
+            let controller_blob: Vec<u8> = row.get(1);
+            let object_type_int: i64 = row.get(2);
+            let data: Option<Vec<u8>> = row.get(3);
             let data = data.unwrap_or_default();
 
             // Convert to UnitsObjectId
             let mut id_array = [0u8; 32];
-            let mut holder_array = [0u8; 32];
-            let mut token_manager_array = [0u8; 32];
+            let mut controller_array = [0u8; 32];
 
             if id_blob.len() == 32 {
                 id_array.copy_from_slice(&id_blob);
             }
 
-            if holder_blob.len() == 32 {
-                holder_array.copy_from_slice(&holder_blob);
+            if controller_blob.len() == 32 {
+                controller_array.copy_from_slice(&controller_blob);
             }
 
-            if token_manager_blob.len() == 32 {
-                token_manager_array.copy_from_slice(&token_manager_blob);
-            }
-
-            // Convert token type
-            let _object_type = match SqliteStorage::int_to_object_type(token_type_int) {
-                Ok(tt) => tt,
+            // Convert object type
+            let object_type = match SqliteStorage::int_to_object_type(object_type_int) {
+                Ok(ot) => ot,
                 Err(e) => return Err(StorageError::Other(e)),
             };
 
-            Ok(Some(UnitsObject::new_token(
-                UnitsObjectId::new(id_array),
-                UnitsObjectId::new(holder_array),
-                TokenType::Native, // Default to Native
-                UnitsObjectId::new(token_manager_array),
-                data,
-            )))
+            // Create the appropriate object type
+            let obj = match object_type {
+                ObjectType::Data => UnitsObject::new_data(
+                    UnitsObjectId::new(id_array),
+                    UnitsObjectId::new(controller_array),
+                    data,
+                ),
+                ObjectType::Executable(vm_type) => UnitsObject::new_executable(
+                    UnitsObjectId::new(id_array),
+                    UnitsObjectId::new(controller_array),
+                    vm_type,
+                    data,
+                ),
+            };
+
+            Ok(Some(obj))
         })
     }
 
@@ -481,7 +495,7 @@ impl UnitsStorage for SqliteStorage {
         self.rt.block_on(async {
             // Query the object history table for the state at or before the given slot
             let query = "
-                SELECT holder, token_type, token_manager, data
+                SELECT controller_id, object_type, data
                 FROM object_history
                 WHERE object_id = ? AND slot <= ?
                 ORDER BY slot DESC
@@ -501,10 +515,9 @@ impl UnitsStorage for SqliteStorage {
                 })?;
 
             if let Some(row) = row {
-                let holder_blob: Vec<u8> = row.get(0);
-                let token_type_int: i64 = row.get(1);
-                let token_manager_blob: Vec<u8> = row.get(2);
-                let data: Option<Vec<u8>> = row.get(3);
+                let controller_blob: Vec<u8> = row.get(0);
+                let object_type_int: i64 = row.get(1);
+                let data: Option<Vec<u8>> = row.get(2);
 
                 // If data is NULL, this was a tombstone record (deletion marker)
                 if data.is_none() {
@@ -514,30 +527,34 @@ impl UnitsStorage for SqliteStorage {
                 let data = data.unwrap_or_default();
 
                 // Convert to UnitsObjectId
-                let mut holder_array = [0u8; 32];
-                let mut token_manager_array = [0u8; 32];
+                let mut controller_array = [0u8; 32];
 
-                if holder_blob.len() == 32 {
-                    holder_array.copy_from_slice(&holder_blob);
+                if controller_blob.len() == 32 {
+                    controller_array.copy_from_slice(&controller_blob);
                 }
 
-                if token_manager_blob.len() == 32 {
-                    token_manager_array.copy_from_slice(&token_manager_blob);
-                }
-
-                // Convert token type
-                let _object_type = match Self::int_to_object_type(token_type_int) {
-                    Ok(tt) => tt,
+                // Convert object type
+                let object_type = match Self::int_to_object_type(object_type_int) {
+                    Ok(ot) => ot,
                     Err(e) => return Err(StorageError::Other(e)),
                 };
 
-                Ok(Some(UnitsObject::new_token(
-                    *id,
-                    UnitsObjectId::new(holder_array),
-                    TokenType::Native, // Default to Native
-                    UnitsObjectId::new(token_manager_array),
-                    data,
-                )))
+                // Create the appropriate object type
+                let obj = match object_type {
+                    ObjectType::Data => UnitsObject::new_data(
+                        *id,
+                        UnitsObjectId::new(controller_array),
+                        data,
+                    ),
+                    ObjectType::Executable(vm_type) => UnitsObject::new_executable(
+                        *id,
+                        UnitsObjectId::new(controller_array),
+                        vm_type,
+                        data,
+                    ),
+                };
+
+                Ok(Some(obj))
             } else {
                 // No historical record found at or before the requested slot
                 Ok(None)
@@ -558,14 +575,13 @@ impl UnitsStorage for SqliteStorage {
                 .with_context(|| "Failed to start database transaction")?;
 
             // Store the object
-            let token_type_int = Self::object_type_to_int(&object.object_type);
-            let query = "INSERT OR REPLACE INTO objects (id, holder, token_type, token_manager, data) VALUES (?, ?, ?, ?, ?)";
+            let object_type_int = Self::object_type_to_int(&object.object_type);
+            let query = "INSERT OR REPLACE INTO objects (id, controller_id, object_type, data) VALUES (?, ?, ?, ?)";
 
             sqlx::query(query)
                 .bind(object.id().as_ref())
-                .bind(object.owner().as_ref())
-                .bind(token_type_int)
-                .bind(object.token_manager().unwrap().as_ref())
+                .bind(object.controller_id().as_ref())
+                .bind(object_type_int)
                 .bind(object.data())
                 .execute(&mut *tx)
                 .await
@@ -603,12 +619,11 @@ impl UnitsStorage for SqliteStorage {
                 .with_context(|| format!("Failed to store proof for object ID: {:?}", object.id()))?;
 
             // Store a snapshot in the object history table
-            sqlx::query("INSERT OR REPLACE INTO object_history (object_id, slot, holder, token_type, token_manager, data) VALUES (?, ?, ?, ?, ?, ?)")
+            sqlx::query("INSERT OR REPLACE INTO object_history (object_id, slot, controller_id, object_type, data) VALUES (?, ?, ?, ?, ?)")
                 .bind(object.id().as_ref())
                 .bind(proof.slot as i64)
-                .bind(object.owner().as_ref())
-                .bind(token_type_int)
-                .bind(object.token_manager().unwrap().as_ref())
+                .bind(object.controller_id().as_ref())
+                .bind(object_type_int)
                 .bind(object.data())
                 .execute(&mut *tx)
                 .await
@@ -647,11 +662,9 @@ impl UnitsStorage for SqliteStorage {
             let prev_proof = self.get_proof(id)?;
 
             // Create a tombstone object (empty data)
-            let tombstone = UnitsObject::new_token(
+            let tombstone = UnitsObject::new_data(
                 *object.id(),
-                *object.owner(),
-                TokenType::Native, // Default to Native
-                *object.token_manager().unwrap(),
+                *object.controller_id(),
                 Vec::new(),
             );
 
@@ -683,13 +696,12 @@ impl UnitsStorage for SqliteStorage {
                 .with_context(|| format!("Failed to register slot: {}", proof.slot))?;
 
             // Create a special historical entry for the deletion
-            let token_type_int = Self::object_type_to_int(&object.object_type);
-            sqlx::query("INSERT INTO object_history (object_id, slot, holder, token_type, token_manager, data) VALUES (?, ?, ?, ?, ?, NULL)")
+            let object_type_int = Self::object_type_to_int(&object.object_type);
+            sqlx::query("INSERT INTO object_history (object_id, slot, controller_id, object_type, data) VALUES (?, ?, ?, ?, NULL)")
                 .bind(id.as_ref())
                 .bind(proof.slot as i64)
-                .bind(object.owner().as_ref())
-                .bind(token_type_int)
-                .bind(object.token_manager().unwrap().as_ref())
+                .bind(object.controller_id().as_ref())
+                .bind(object_type_int)
                 .execute(&mut *tx)
                 .await
                 .with_context(|| format!("Failed to store deletion history for ID: {:?}", id))?;
@@ -1048,7 +1060,7 @@ impl Iterator for SqliteStorageIterator {
         self.rt.block_on(async {
             // Query a single object at the current index
             let query =
-                "SELECT id, holder, token_type, token_manager, data FROM objects LIMIT 1 OFFSET ?";
+                "SELECT id, controller_id, object_type, data FROM objects LIMIT 1 OFFSET ?";
 
             let row = match sqlx::query(query)
                 .bind(self.current_index)
@@ -1061,45 +1073,48 @@ impl Iterator for SqliteStorageIterator {
             };
 
             let id_blob: Vec<u8> = row.get(0);
-            let holder_blob: Vec<u8> = row.get(1);
-            let token_type_int: i64 = row.get(2);
-            let token_manager_blob: Vec<u8> = row.get(3);
-            let data: Option<Vec<u8>> = row.get(4);
+            let controller_blob: Vec<u8> = row.get(1);
+            let object_type_int: i64 = row.get(2);
+            let data: Option<Vec<u8>> = row.get(3);
             let data = data.unwrap_or_default();
 
             // Convert to UnitsObjectId
             let mut id_array = [0u8; 32];
-            let mut holder_array = [0u8; 32];
-            let mut token_manager_array = [0u8; 32];
+            let mut controller_array = [0u8; 32];
 
             if id_blob.len() == 32 {
                 id_array.copy_from_slice(&id_blob);
             }
 
-            if holder_blob.len() == 32 {
-                holder_array.copy_from_slice(&holder_blob);
+            if controller_blob.len() == 32 {
+                controller_array.copy_from_slice(&controller_blob);
             }
 
-            if token_manager_blob.len() == 32 {
-                token_manager_array.copy_from_slice(&token_manager_blob);
-            }
-
-            // Convert token type
-            let _object_type = match SqliteStorage::int_to_object_type(token_type_int) {
-                Ok(tt) => tt,
+            // Convert object type
+            let object_type = match SqliteStorage::int_to_object_type(object_type_int) {
+                Ok(ot) => ot,
                 Err(e) => return Some(Err(StorageError::Other(e))),
             };
 
             // Increment the index for the next call
             self.current_index += 1;
 
-            Some(Ok(UnitsObject::new_token(
-                UnitsObjectId::new(id_array),
-                UnitsObjectId::new(holder_array),
-                TokenType::Native, // Default to Native
-                UnitsObjectId::new(token_manager_array),
-                data,
-            )))
+            // Create the appropriate object type
+            let obj = match object_type {
+                ObjectType::Data => UnitsObject::new_data(
+                    UnitsObjectId::new(id_array),
+                    UnitsObjectId::new(controller_array),
+                    data,
+                ),
+                ObjectType::Executable(vm_type) => UnitsObject::new_executable(
+                    UnitsObjectId::new(id_array),
+                    UnitsObjectId::new(controller_array),
+                    vm_type,
+                    data,
+                ),
+            };
+
+            Some(Ok(obj))
         })
     }
 }
@@ -1237,8 +1252,8 @@ impl TransactionReceiptStorage for SqliteStorage {
             for object_id in receipt.object_proofs.keys() {
                 // Ensure the object exists (insert a placeholder if needed for foreign key constraint)
                 sqlx::query(
-                    "INSERT OR IGNORE INTO objects (id, holder, token_type, token_manager, data)
-                     VALUES (?, zeroblob(32), 0, zeroblob(32), NULL)"
+                    "INSERT OR IGNORE INTO objects (id, controller_id, object_type, data)
+                     VALUES (?, zeroblob(32), 0, NULL)"
                 )
                 .bind(object_id.as_ref())
                 .execute(&mut *tx)
@@ -1266,8 +1281,8 @@ impl TransactionReceiptStorage for SqliteStorage {
 
                 // Ensure the object exists (insert a placeholder if needed for foreign key constraint)
                 sqlx::query(
-                    "INSERT OR IGNORE INTO objects (id, holder, token_type, token_manager, data)
-                     VALUES (?, zeroblob(32), 0, zeroblob(32), NULL)"
+                    "INSERT OR IGNORE INTO objects (id, controller_id, object_type, data)
+                     VALUES (?, zeroblob(32), 0, NULL)"
                 )
                 .bind(effect.object_id.as_ref())
                 .execute(&mut *tx)
@@ -1559,7 +1574,6 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
     use units_core::id::UnitsObjectId;
-    use units_core::objects::TokenType;
 
     // Iterator implementations for testing
     struct MockProofIterator {
@@ -1991,13 +2005,10 @@ mod tests {
 
         // Create test object
         let id = UnitsObjectId::unique_id_for_tests();
-        let holder = UnitsObjectId::unique_id_for_tests();
-        let token_manager = UnitsObjectId::unique_id_for_tests();
-        let obj = UnitsObject::new_token(
+        let controller_id = UnitsObjectId::unique_id_for_tests();
+        let obj = UnitsObject::new_data(
             id,
-            holder,
-            TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4],
         );
 
@@ -2009,9 +2020,8 @@ mod tests {
         let retrieved = storage.get(&id).unwrap().unwrap();
 
         assert_eq!(*retrieved.id(), *obj.id());
-        assert_eq!(*retrieved.owner(), *obj.owner());
+        assert_eq!(*retrieved.controller_id(), *obj.controller_id());
         assert_eq!(retrieved.object_type, obj.object_type);
-        assert_eq!(retrieved.token_manager(), obj.token_manager());
         assert_eq!(retrieved.data(), obj.data());
 
         // Test delete
@@ -2026,13 +2036,10 @@ mod tests {
 
         // Create test object
         let id = UnitsObjectId::unique_id_for_tests();
-        let holder = UnitsObjectId::unique_id_for_tests();
-        let token_manager = UnitsObjectId::unique_id_for_tests();
-        let obj = UnitsObject::new_token(
+        let controller_id = UnitsObjectId::unique_id_for_tests();
+        let obj = UnitsObject::new_data(
             id,
-            holder,
-            TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4],
         );
 
@@ -2060,11 +2067,8 @@ mod tests {
         // Add multiple objects
         for i in 0..5 {
             let id = UnitsObjectId::unique_id_for_tests();
-
-            let holder = UnitsObjectId::unique_id_for_tests();
-            let token_manager = UnitsObjectId::unique_id_for_tests();
-            let obj =
-                UnitsObject::new_token(id, holder, TokenType::Native, token_manager, vec![1, 2, 3]);
+            let controller_id = UnitsObjectId::unique_id_for_tests();
+            let obj = UnitsObject::new_data(id, controller_id, vec![1, 2, 3]);
 
             // Create a unique transaction hash for each object
             let mut transaction_hash = [0u8; 32];
@@ -2092,13 +2096,10 @@ mod tests {
 
         // Create and store an object to ensure we have something to generate proofs for
         let id = UnitsObjectId::unique_id_for_tests();
-        let holder = UnitsObjectId::unique_id_for_tests();
-        let token_manager = UnitsObjectId::unique_id_for_tests();
-        let obj = UnitsObject::new_token(
+        let controller_id = UnitsObjectId::unique_id_for_tests();
+        let obj = UnitsObject::new_data(
             id,
-            holder,
-            TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4],
         );
 
@@ -2125,13 +2126,10 @@ mod tests {
 
         // Create a test object
         let id = UnitsObjectId::unique_id_for_tests();
-        let holder = UnitsObjectId::unique_id_for_tests();
-        let token_manager = UnitsObjectId::unique_id_for_tests();
-        let obj = UnitsObject::new_token(
+        let controller_id = UnitsObjectId::unique_id_for_tests();
+        let obj = UnitsObject::new_data(
             id,
-            holder,
-            TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4],
         );
 
@@ -2141,11 +2139,9 @@ mod tests {
         println!("Initial proof slot: {}", proof1.slot);
 
         // Modify and store the object again to create a chain of proofs
-        let obj_updated = UnitsObject::new_token(
+        let obj_updated = UnitsObject::new_data(
             *obj.id(),
-            *obj.owner(),
-            TokenType::Native,
-            *obj.token_manager().unwrap(),
+            *obj.controller_id(),
             vec![5, 6, 7, 8],
         );
         let proof2 = storage.set(&obj_updated, None).unwrap();
@@ -2153,11 +2149,9 @@ mod tests {
         println!("Second proof prev_hash: {:?}", proof2.prev_proof_hash);
 
         // Modify and store once more
-        let obj_updated2 = UnitsObject::new_token(
+        let obj_updated2 = UnitsObject::new_data(
             *obj_updated.id(),
-            *obj_updated.owner(),
-            TokenType::Native,
-            *obj_updated.token_manager().unwrap(),
+            *obj_updated.controller_id(),
             vec![9, 10, 11, 12],
         );
         let proof3 = storage.set(&obj_updated2, None).unwrap();

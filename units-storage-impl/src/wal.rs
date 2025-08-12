@@ -238,14 +238,11 @@ mod tests {
     // Helper to create a test object
     fn create_test_object() -> UnitsObject {
         let id = UnitsObjectId::random();
-        let owner = UnitsObjectId::random();
-        let token_manager = UnitsObjectId::random();
+        let controller_id = UnitsObjectId::random();
 
-        UnitsObject::new_token(
+        UnitsObject::new_data(
             id,
-            owner,
-            units_core::objects::TokenType::Native,
-            token_manager,
+            controller_id,
             vec![1, 2, 3, 4], // data
         )
     }
