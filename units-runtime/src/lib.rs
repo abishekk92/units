@@ -1,7 +1,9 @@
 pub mod host_environment;
 pub mod mock_runtime;
+pub mod receipt_storage;
 pub mod runtime;
 pub mod runtime_backend;
+pub mod transaction_manager;
 pub mod verification;
 
 // Re-export the main types for convenience

@@ -1,5 +1,7 @@
+pub mod iterators;
 pub mod lock_manager;
 pub mod storage_traits;
+pub mod storage;
 pub mod wal;
 
 #[cfg(feature = "sqlite")]

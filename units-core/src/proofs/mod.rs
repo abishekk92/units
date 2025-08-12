@@ -1,8 +1,11 @@
 pub mod engine;
 pub mod merkle_proof;
+pub mod proof_engine;
 
 // Re-export the main types for convenience
 pub use engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof, VerificationResult};
+// Re-export the concrete proof engine
+pub use proof_engine::ProofEngine as ConcreteProofEngine;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Get the current slot number based on system time

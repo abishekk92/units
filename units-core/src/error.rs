@@ -20,6 +20,10 @@ pub enum RuntimeError {
     #[error("Unimplemented: {0}")]
     Unimplemented(String),
     
+    /// Transaction conflict error
+    #[error("Transaction conflict: {0:?} conflicts with {1:?}")]
+    TransactionConflict([u8; 32], Vec<crate::id::UnitsObjectId>),
+    
     /// Generic errors that don't fit in other categories
     #[error("Other error: {0}")]
     Other(String),
@@ -95,6 +99,18 @@ pub enum StorageError {
     /// Errors when a feature is not implemented
     #[error("Unimplemented: {0}")]
     Unimplemented(String),
+    
+    /// Lock-related errors
+    #[error("Lock error: {0}")]
+    LockError(String),
+    
+    /// Receipt not found error
+    #[error("Receipt not found: {0:?}")]
+    ReceiptNotFound([u8; 32]),
+    
+    /// Transaction conflict error
+    #[error("Transaction conflict: {0:?} conflicts with {1:?}")]
+    TransactionConflict([u8; 32], Vec<crate::id::UnitsObjectId>),
 
     /// Generic errors that don't fit in other categories
     #[error("Other error: {0}")]
