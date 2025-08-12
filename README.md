@@ -4,86 +4,66 @@ A modular storage and runtime system for the Universal Information Tokenization 
 
 ## Overview
 
-UNITS is a component of Finternet that provides a way to tokenize and manage objects. This workspace implements the full UNITS stack, organized into logical crates that work together.
+UNITS is a component of Finternet that provides a way to tokenize and manage objects. The core of UNITS is the TokenizedObject, whose state can only be mutated by its holder. This workspace implements the full UNITS stack, organized into logical crates that work together.
 
 ## Workspace Structure
 
 The project is organized as a Cargo workspace with the following crates:
 
 - **units-core**: Core data structures and fundamental types
-  - UnitsObjectId
+  - UnitsObjectId (32-byte public key)
   - TokenizedObject
+  - Locks, transactions, and scheduling primitives
+  - Proof systems and engines
   - Basic error types
 
-- **units-proofs**: Cryptographic proof systems
-  - Merkle Proofs
-  - Proof Engines
-  - State Proofs
-
-- **units-storage-impl**: Storage backends
+- **units-storage-impl**: Storage backends and traits
   - Storage Traits
   - SQLite Implementation
-  - Write-Ahead Log
+  - Lock Manager
+  - Key-value store where key is UnitsObjectId and value is TokenizedObject
 
 - **units-runtime**: Runtime and verification
   - Object Runtime
-  - Proof Verification
   - Transaction Processing
-  - Transaction Commitment Levels
-
-- **units**: Convenience wrapper crate that re-exports all components
+  - Mock runtime for testing
 
 ## Features
 
-- **Storage Trait**: A unified interface for different storage backends
-- **TokenizedObject**: Core data structure with cryptographic features
-- **Verifiable History**: Cryptographic proof chains that link object states over time
-- **Write-Ahead Log**: Durable logging of all state changes for reliability
-- **Slot-Based Versioning**: Historical tracking of objects and their proofs
-- **Transaction Commitment Levels**: Support for processing, committed, and failed transaction states
+- **TokenizedObject**: Core data structure controlled by holder's private key or controller program
+- **Object Proofs**: Cryptographic proofs emitted whenever a value is set in storage, committing to previous and new states
+- **Slot-Based Time**: Time split into configurable slots, with all object proofs from a slot aggregated into a slot proof
+- **Storage Trait**: Unified interface for key-value storage backends
 - **SQLite Backend**: Reliable and efficient storage implementation
+- **Lock Manager**: Coordination for concurrent access to objects
+- **Transaction Processing**: Support for complex multi-object operations
 
 ## Architecture
 
-For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
+### Core Components
+
+1. **UnitsObjectId**: 32-byte public key that uniquely identifies objects. The key is either controlled by its corresponding private key or by a `controller_program` for IDs not on the curve.
+
+2. **TokenizedObject**: The fundamental data structure whose state can only be mutated by the holder.
+
+3. **Storage**: Key-value store where the key is UnitsObjectId and the value is TokenizedObject as a blob.
 
 ### Proof System
 
-The proof system is designed to provide cryptographic guarantees about object states and their history:
+The proof system provides cryptographic guarantees about object state changes:
 
-1. **Object Proofs**: Each TokenizedObject has a proof that:
-   - Commits to the current state of the object
-   - Links to the previous state through the `prev_proof_hash`
-   - Is tracked with a `slot` number to organize time
+1. **Object Proofs**: Emitted whenever a value is set in storage, these proofs commit to both the previous state and new state of the object.
 
-2. **State Proofs**: Aggregate multiple object proofs to commit to system state:
-   - Track which objects are included in each state proof
-   - Link to previous state proofs, creating a chain of state transitions
-   - Provide a way to verify the collective state at a point in time
+2. **Slot Proofs**: Time is divided into slots (configurable length), and all object proofs from a slot are aggregated into a single slot proof that commits to the previous and new states of all objects in that slot.
 
-3. **Proof Chains**: Verify historical transitions of objects:
-   - Any proof can be traced back to its ancestors
-   - Each transition is cryptographically verified
-   - Invalid transitions break the chain, ensuring data integrity
+### Storage Architecture
 
-### Storage Layers
+The storage system is built around a simple but powerful model:
 
-The storage system is organized into distinct layers:
-
-1. **Write-Ahead Log (WAL)**:
-   - Durable log of all state changes before they're committed
-   - Provides crash recovery and audit capabilities
-   - Records both object updates and state proofs
-
-2. **Key-Value Store**:
-   - Current state of all objects and their proofs
-   - Optimized for fast reads and updates
-   - SQLite backend implementation
-
-3. **Historical State**:
-   - Versioned history of all objects and proofs
-   - Organized by slot number for time-based access
-   - Enables verification of past states and transitions
+- **Key-Value Interface**: Clean abstraction where UnitsObjectId maps to TokenizedObject
+- **SQLite Backend**: Reliable persistence with ACID guarantees  
+- **Lock Manager**: Coordinates concurrent access to prevent conflicts
+- **Proof Integration**: Automatic generation of cryptographic proofs on state changes
 
 ## Usage
 
@@ -91,20 +71,10 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-units = "0.1.0"  # For the complete package
-
-# Or use specific components:
+# Use specific components:
 units-core = "0.1.0"
-units-proofs = "0.1.0"
-units-storage-impl = { version = "0.1.0", features = ["sqlite"] }
+units-storage-impl = "0.1.0"  # SQLite backend included
 units-runtime = "0.1.0"
-```
-
-The SQLite storage backend is enabled by default:
-
-```toml
-[dependencies]
-units-storage-impl = { version = "0.1.0", features = ["sqlite"] }
 ```
 
 ## Examples
@@ -112,73 +82,66 @@ units-storage-impl = { version = "0.1.0", features = ["sqlite"] }
 ### Basic Usage
 
 ```rust
-use units::{UnitsObjectId, TokenizedObject, TokenType};
-use units::SqliteStorage;  // With sqlite feature enabled
-use units::UnitsStorage;
+use units_core::{UnitsObjectId, UnitsObject, TokenType};
+use units_storage_impl::{SqliteStorage, UnitsStorage};
 use std::path::Path;
 
 // Create a storage instance
-let storage = SqliteStorage::new(Path::new("./my_database.db")).unwrap();
+let storage = SqliteStorage::new(Path::new("./my_database.db")).await?;
 
-// Create an object
+// Create a token object
 let id = UnitsObjectId::random();
-let holder = UnitsObjectId::random();
+let owner = UnitsObjectId::random();
 let token_manager = UnitsObjectId::random();
-let obj = TokenizedObject {
-    id,
-    holder,
-    token_type: TokenType::Native,
-    token_manager,
-    data: vec![1, 2, 3, 4],
-};
+let obj = UnitsObject::new_token(
+    id, 
+    owner, 
+    TokenType::Native, 
+    token_manager, 
+    vec![1, 2, 3, 4]
+);
 
 // Store the object and get its proof
-let proof = storage.set(&obj).unwrap();
+let proof = storage.set(&obj, None).await?;
 println!("Object proof: {:?}", proof);
 
 // Retrieve the object
-if let Some(retrieved) = storage.get(&id).unwrap() {
+if let Some(retrieved) = storage.get(&id).await? {
     println!("Retrieved object: {:?}", retrieved);
 }
 
 // Delete the object and get the deletion proof
-let deletion_proof = storage.delete(&id).unwrap();
+let deletion_proof = storage.delete(&id, None).await?;
 println!("Deletion proof: {:?}", deletion_proof);
 ```
 
-### Transaction Processing with Commitment Levels
+### Transaction Processing
 
 ```rust
-use units::{Transaction, Instruction, CommitmentLevel, AccessIntent};
-use units::runtime::Runtime;
+use units_core::{Transaction, Instruction, AccessIntent, RuntimeType, TransactionHash};
+use units_runtime::Runtime;
 
 // Create instructions for a transaction
-let instruction = Instruction {
-    data: vec![/* instruction data */],
-    object_intents: vec![(object_id, AccessIntent::Write)]
-};
+let instruction = Instruction::wasm(
+    vec![/* parameters */],
+    vec![(object_id, AccessIntent::Write)],
+    code_object_id
+);
 
-// Create a transaction (starts with Processing commitment level)
+// Create a transaction
+let transaction_hash = TransactionHash::new([0u8; 32]);
 let mut transaction = Transaction::new(vec![instruction], transaction_hash);
 
-// Execute the transaction
-let result = runtime.execute_transaction(&transaction).unwrap();
+// Acquire locks based on object intents
+let lock_manager = storage.lock_manager();
+let _locks = transaction.acquire_locks(&lock_manager).await?;
 
-if result.success {
-    // Mark the transaction as committed when ready
-    transaction.commit();
+// Execute the transaction through runtime
+let receipt = runtime.execute_transaction(&transaction, &storage).await?;
 
-    // Or if there's an issue, mark it as failed
-    // transaction.fail();
+// Store the transaction receipt
+storage.store_receipt(&receipt).await?;
 
-    // Check if a transaction can be rolled back
-    if transaction.can_rollback() {
-        // Roll back operations if needed
-    }
-}
-
-// Transaction receipts also capture commitment levels
-let receipt = runtime.get_transaction_receipt(&transaction.hash).unwrap();
 println!("Transaction commitment level: {:?}", receipt.commitment_level);
 ```
 
@@ -186,55 +149,79 @@ println!("Transaction commitment level: {:?}", receipt.commitment_level);
 
 ```rust
 // Iterate over all objects
-let mut iterator = storage.scan();
-while let Some(obj) = iterator.next() {
-    println!("Found object: {:?}", obj);
+let mut iterator = storage.scan().await?;
+while let Some(obj) = iterator.next().await {
+    println!("Found object: {:?}", obj?);
 }
 ```
 
-### Proofs
+### Working with Proofs
 
 ```rust
-// Generate a state proof
-let state_proof = storage.generate_and_store_state_proof().unwrap();
+use units_core::SlotNumber;
+
+// Generate a state proof for current slot
+let state_proof = storage.generate_state_proof(None).await?;
 println!("State proof: {:?}", state_proof);
 
 // Get the current proof for a specific object
-if let Some(obj_proof) = storage.get_proof(&id).unwrap() {
+if let Some(obj_proof) = storage.get_proof(&id).await? {
     // Verify the proof
-    if storage.verify_proof(&id, &obj_proof).unwrap() {
+    if storage.verify_proof(&id, &obj_proof).await? {
         println!("Proof verified!");
     }
 }
 
 // Get an object's state at a specific historical slot
-let historical_slot = 12345;
-if let Some(historical_obj) = storage.get_at_slot(&id, historical_slot).unwrap() {
+let historical_slot = SlotNumber(12345);
+if let Some(historical_obj) = storage.get_at_slot(&id, historical_slot).await? {
     println!("Object at slot {}: {:?}", historical_slot, historical_obj);
 }
 
 // Get an object's proof at a specific historical slot
-if let Some(historical_proof) = storage.get_proof_at_slot(&id, historical_slot).unwrap() {
+if let Some(historical_proof) = storage.get_proof_at_slot(&id, historical_slot).await? {
     println!("Proof at slot {}: {:?}", historical_slot, historical_proof);
 }
 
-// Verify a chain of proofs between two slots
-if storage.verify_proof_chain(&id, 12340, 12350).unwrap() {
-    println!("Proof chain is valid!");
-}
-
-// Iterate through an object's proof history
-let mut history = storage.get_proof_history(&id);
-while let Some(Ok((slot, proof))) = history.next() {
-    println!("Found proof at slot {}: {:?}", slot, proof);
-}
-
-// Get all state proofs
-let mut state_proofs = storage.get_state_proofs();
-while let Some(Ok(proof)) = state_proofs.next() {
-    println!("State proof at slot {}: {:?}", proof.slot, proof);
+// Iterate through transaction receipts
+let mut receipts = storage.get_receipts().await?;
+while let Some(receipt) = receipts.next().await {
+    println!("Receipt: {:?}", receipt?);
 }
 ```
+
+## Development
+
+### Build Commands
+
+```bash
+# Build all crates
+fish -c "cargo workspaces exec -- cargo build"
+
+# Check all crates
+fish -c "cargo workspaces exec -- cargo check"
+
+# Run all tests
+fish -c "cargo workspaces exec -- cargo test"
+
+# Format code
+fish -c "cargo workspaces exec -- cargo fmt"
+
+# Build with release optimizations
+fish -c "cargo workspaces exec -- cargo build --release"
+```
+
+### Testing
+
+```bash
+# Run tests for a specific crate
+fish -c "cd units-core && cargo test"
+
+# Run a specific test
+fish -c "cargo test test_name"
+```
+
+Standard workflow: Build → Check → Test
 
 ## License
 
