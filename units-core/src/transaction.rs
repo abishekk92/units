@@ -35,23 +35,6 @@ impl Default for CommitmentLevel {
     }
 }
 
-/// Identifies the runtime environment for program execution
-///
-/// This represents the type of runtime needed to execute program code.
-/// We only support runtimes with proper isolation guarantees.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum RuntimeType {
-    /// WebAssembly virtual machine (using wasmtime, wasmer, etc.)
-    Wasm,
-    /// eBPF virtual machine
-    Ebpf,
-}
-
-impl Default for RuntimeType {
-    fn default() -> Self {
-        RuntimeType::Wasm
-    }
-}
 
 /// Standard entrypoint name used across all runtimes
 ///

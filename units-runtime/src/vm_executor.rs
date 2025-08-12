@@ -125,6 +125,9 @@ pub enum VMExecutionError {
     
     #[error("Controller validation failed: {0}")]
     ControllerValidationFailed(String),
+    
+    #[error("Unsupported VM type: {0}")]
+    UnsupportedVMType(String),
 }
 
 /// Abstract interface for different VM types

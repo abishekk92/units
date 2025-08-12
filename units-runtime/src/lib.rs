@@ -3,7 +3,6 @@ pub mod mock_runtime;
 pub mod receipt_storage;
 pub mod riscv_executor;
 pub mod runtime;
-pub mod runtime_backend;
 pub mod transaction_manager;
 pub mod verification;
 pub mod vm_executor;
@@ -20,11 +19,6 @@ pub use units_core::transaction::{ConflictResult, Instruction, Transaction, Tran
 
 pub use verification::{detect_double_spend, verify_transaction_included, ProofVerifier};
 
-// Re-export runtime backend types
-pub use runtime_backend::{
-    EbpfRuntimeBackend, ExecutionError, InstructionContext, InstructionResult, RuntimeBackend,
-    RuntimeBackendManager, WasmRuntimeBackend,
-};
 
 // Re-export host environment types
 pub use host_environment::{

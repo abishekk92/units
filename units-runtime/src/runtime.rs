@@ -1,4 +1,4 @@
-use crate::runtime_backend::{ExecutionError, InstructionContext, RuntimeBackendManager};
+use crate::vm_executor::{ExecutionContext, VMExecutionError, VMExecutor};
 use std::collections::HashMap;
 use units_core::error::RuntimeError;
 use units_core::id::UnitsObjectId;
@@ -9,8 +9,8 @@ use units_core::transaction::{
 
 /// Runtime for executing transactions and programs in the UNITS system
 pub trait Runtime {
-    /// Get the runtime backend manager used by this runtime
-    fn backend_manager(&self) -> &RuntimeBackendManager;
+    /// Get the VM executors available to this runtime
+    fn get_vm_executor(&self, vm_type: units_core::objects::VMType) -> Option<Box<dyn VMExecutor>>;
 
     //--------------------------------------------------------------------------
     // TRANSACTION EXECUTION
@@ -46,34 +46,36 @@ pub trait Runtime {
     //--------------------------------------------------------------------------
 
     /// Execute a program call instruction
-    fn execute_program_call(
+    fn execute_instruction(
         &self,
-        program_id: &UnitsObjectId,
-        args: &[u8],
-        transaction_hash: &TransactionHash,
+        instruction: &Instruction,
         objects: HashMap<UnitsObjectId, UnitsObject>,
-        parameters: HashMap<String, String>,
-    ) -> Result<HashMap<UnitsObjectId, UnitsObject>, ExecutionError> {
-        // Create an instruction
-        let instruction = Instruction::new(
-            *program_id,
-            "main".to_string(), // Default entrypoint
-            objects.keys().cloned().collect(),
-            args.to_vec(),
-        );
+        slot: u64,
+        timestamp: u64,
+    ) -> Result<Vec<crate::vm_executor::ObjectEffect>, VMExecutionError> {
+        // Get the controller object 
+        let controller = objects.get(&instruction.controller_id)
+            .ok_or_else(|| VMExecutionError::InvalidBytecode("Controller object not found".to_string()))?
+            .clone();
+
+        // Get VM type from controller
+        let vm_type = controller.vm_type()
+            .ok_or_else(|| VMExecutionError::InvalidBytecode("Controller is not executable".to_string()))?;
+
+        // Get appropriate VM executor
+        let executor = self.get_vm_executor(vm_type)
+            .ok_or_else(|| VMExecutionError::UnsupportedVMType(format!("{:?}", vm_type)))?;
 
         // Create execution context
-        let context = InstructionContext {
-            transaction_hash,
+        let context = ExecutionContext::new(
+            instruction.clone(),
             objects,
-            parameters,
-            program_id: Some(*program_id),
-            entrypoint: None,
-        };
+            slot,
+            timestamp,
+        );
 
-        // Execute the program
-        self.backend_manager()
-            .execute_program_call(program_id, &instruction, context)
+        // Execute the instruction
+        executor.load_and_execute(controller.data(), &context)
     }
 
     //--------------------------------------------------------------------------
