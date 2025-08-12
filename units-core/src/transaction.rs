@@ -113,7 +113,6 @@ impl Instruction {
         Self::new(params, RuntimeType::Wasm, object_intents, code_object_id)
     }
 
-
     /// Acquire all locks needed for this instruction
     ///
     /// This acquires locks for all objects according to their access intents.
@@ -381,13 +380,13 @@ impl Transaction {
 pub struct TransactionEffect {
     /// The transaction that caused this effect
     pub transaction_hash: TransactionHash,
-    
+
     /// The ID of the object affected
     pub object_id: UnitsObjectId,
-    
+
     /// The state of the object before the transaction (None if object was created)
     pub before_image: Option<UnitsObject>,
-    
+
     /// The state of the object after the transaction (None if object was deleted)
     pub after_image: Option<UnitsObject>,
 }
@@ -400,17 +399,14 @@ impl TransactionEffect {
     pub fn transaction_hash(&self) -> &TransactionHash {
         &self.transaction_hash
     }
-    
+
     /// Get the object ID for this effect
     pub fn object_id(&self) -> &UnitsObjectId {
         &self.object_id
     }
-    
+
     /// Create a new effect for object creation
-    pub fn new_creation(
-        transaction_hash: TransactionHash,
-        object: UnitsObject,
-    ) -> Self {
+    pub fn new_creation(transaction_hash: TransactionHash, object: UnitsObject) -> Self {
         Self {
             transaction_hash,
             object_id: *object.id(),
@@ -418,12 +414,9 @@ impl TransactionEffect {
             after_image: Some(object),
         }
     }
-    
+
     /// Create a new effect for object deletion
-    pub fn new_deletion(
-        transaction_hash: TransactionHash,
-        object: UnitsObject,
-    ) -> Self {
+    pub fn new_deletion(transaction_hash: TransactionHash, object: UnitsObject) -> Self {
         Self {
             transaction_hash,
             object_id: *object.id(),
@@ -431,7 +424,7 @@ impl TransactionEffect {
             after_image: None,
         }
     }
-    
+
     /// Create a new effect for object modification
     pub fn new_modification(
         transaction_hash: TransactionHash,
@@ -445,23 +438,22 @@ impl TransactionEffect {
             after_image: Some(after),
         }
     }
-    
+
     /// Check if this effect represents an object creation
     pub fn is_creation(&self) -> bool {
         self.before_image.is_none() && self.after_image.is_some()
     }
-    
+
     /// Check if this effect represents an object deletion
     pub fn is_deletion(&self) -> bool {
         self.before_image.is_some() && self.after_image.is_none()
     }
-    
+
     /// Check if this effect represents an object modification
     pub fn is_modification(&self) -> bool {
         self.before_image.is_some() && self.after_image.is_some()
     }
 }
-
 
 /// A receipt of a processed transaction, containing all proofs of object modifications
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -560,7 +552,7 @@ impl TransactionReceipt {
             before_image,
             after_image,
         };
-        
+
         self.effects.push(effect);
     }
 
@@ -591,7 +583,7 @@ impl TransactionReceipt {
     pub fn object_count(&self) -> usize {
         self.object_proofs.len()
     }
-    
+
     /// Get the total number of effects
     pub fn effect_count(&self) -> usize {
         self.effects.len()
@@ -601,9 +593,9 @@ impl TransactionReceipt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::objects::{UnitsObject, TokenType};
     use crate::id::UnitsObjectId;
-    
+    use crate::objects::{TokenType, UnitsObject};
+
     #[test]
     fn test_transaction_effect() {
         // Create an ID for testing
@@ -612,22 +604,14 @@ mod tests {
         let token_manager = UnitsObjectId::new([3; 32]);
         let data = vec![0, 1, 2, 3, 4];
         let transaction_hash = [4; 32];
-        
+
         // Create a token object
-        let token_obj = UnitsObject::new_token(
-            id,
-            owner,
-            TokenType::Native,
-            token_manager,
-            data.clone(),
-        );
-        
+        let token_obj =
+            UnitsObject::new_token(id, owner, TokenType::Native, token_manager, data.clone());
+
         // Create a token creation effect
-        let creation_effect = TransactionEffect::new_creation(
-            transaction_hash,
-            token_obj.clone(),
-        );
-        
+        let creation_effect = TransactionEffect::new_creation(transaction_hash, token_obj.clone());
+
         // Check the effect properties
         assert!(creation_effect.is_creation());
         assert!(!creation_effect.is_deletion());
@@ -636,35 +620,32 @@ mod tests {
         assert_eq!(creation_effect.transaction_hash, transaction_hash);
         assert_eq!(creation_effect.before_image, None);
         assert!(creation_effect.after_image.is_some());
-        
+
         // Create a modified object
         let mut modified_obj = token_obj.clone();
         modified_obj.data = vec![5, 6, 7, 8, 9];
-        
+
         // Create a modification effect
         let modification_effect = TransactionEffect::new_modification(
             transaction_hash,
             token_obj.clone(),
             modified_obj.clone(),
         );
-        
+
         // Check the effect properties
         assert!(!modification_effect.is_creation());
         assert!(!modification_effect.is_deletion());
         assert!(modification_effect.is_modification());
-        
+
         // Create a deletion effect
-        let deletion_effect = TransactionEffect::new_deletion(
-            transaction_hash,
-            token_obj.clone(),
-        );
-        
+        let deletion_effect = TransactionEffect::new_deletion(transaction_hash, token_obj.clone());
+
         // Check the effect properties
         assert!(!deletion_effect.is_creation());
         assert!(deletion_effect.is_deletion());
         assert!(!deletion_effect.is_modification());
     }
-    
+
     #[test]
     fn test_transaction_receipt() {
         // Create an ID for testing
@@ -673,16 +654,11 @@ mod tests {
         let token_manager = UnitsObjectId::new([3; 32]);
         let data = vec![0, 1, 2, 3, 4];
         let transaction_hash = [4; 32];
-        
+
         // Create objects
-        let token_obj = UnitsObject::new_token(
-            id,
-            owner,
-            TokenType::Native,
-            token_manager,
-            data.clone(),
-        );
-        
+        let token_obj =
+            UnitsObject::new_token(id, owner, TokenType::Native, token_manager, data.clone());
+
         let code_obj = UnitsObject::new_code(
             id,
             owner,
@@ -690,27 +666,22 @@ mod tests {
             crate::transaction::RuntimeType::Wasm,
             "main".to_string(),
         );
-        
+
         // Create a transaction receipt
         let mut receipt = TransactionReceipt::new(
             transaction_hash,
-            1234, // slot
-            true, // success
+            1234,  // slot
+            true,  // success
             56789, // timestamp
         );
-        
+
         // Add a token creation effect
-        receipt.add_object_effect(
-            transaction_hash,
-            id,
-            None,
-            Some(token_obj.clone()),
-        );
-        
+        receipt.add_object_effect(transaction_hash, id, None, Some(token_obj.clone()));
+
         // Check the receipt contains the effect
         assert_eq!(receipt.effect_count(), 1);
         assert_eq!(receipt.effects.len(), 1);
-        
+
         // Add a modification effect (token to code)
         receipt.add_object_effect(
             transaction_hash,
@@ -718,13 +689,13 @@ mod tests {
             Some(token_obj.clone()),
             Some(code_obj.clone()),
         );
-        
+
         // Check that we have two effects
         assert_eq!(receipt.effect_count(), 2);
-        
+
         // Verify the first effect is a creation
         assert!(receipt.effects[0].is_creation());
-        
+
         // Verify the second effect is a modification
         assert!(receipt.effects[1].is_modification());
     }

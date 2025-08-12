@@ -7,19 +7,19 @@ pub enum RuntimeError {
     /// Storage related errors
     #[error("Storage error: {0}")]
     Storage(#[from] StorageError),
-    
+
     /// Transaction processing errors
     #[error("Transaction error: {0}")]
     Transaction(String),
-    
+
     /// Program execution errors
     #[error("Program execution error: {0}")]
     Execution(String),
-    
+
     /// Feature not implemented
     #[error("Unimplemented: {0}")]
     Unimplemented(String),
-    
+
     /// Generic errors that don't fit in other categories
     #[error("Other error: {0}")]
     Other(String),
@@ -83,15 +83,15 @@ pub enum StorageError {
     /// Errors when proof chain validation fails due to missing data
     #[error("Proof chain missing data for object {0:?}: {1}")]
     ProofMissingData(crate::id::UnitsObjectId, String),
-    
+
     /// Errors when a transaction is not found
     #[error("Transaction not found: {0:?}")]
     TransactionNotFound([u8; 32]),
-    
+
     /// Errors when an operation is invalid due to transaction state
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
-    
+
     /// Errors when a feature is not implemented
     #[error("Unimplemented: {0}")]
     Unimplemented(String),
@@ -112,7 +112,6 @@ impl From<bincode::Error> for StorageError {
         StorageError::Serialization(err.to_string())
     }
 }
-
 
 #[cfg(feature = "sqlite")]
 impl From<sqlx::Error> for StorageError {

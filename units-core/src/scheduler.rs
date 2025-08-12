@@ -1,7 +1,7 @@
-use std::collections::HashSet;
 use crate::id::UnitsObjectId;
 use crate::locks::AccessIntent;
 use crate::transaction::{ConflictResult, Transaction};
+use std::collections::HashSet;
 
 /// Trait for transaction conflict checking
 pub trait ConflictChecker {

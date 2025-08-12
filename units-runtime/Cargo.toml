@@ -10,7 +10,6 @@ keywords = ["units", "tokenization", "runtime", "verification"]
 
 [dependencies]
 units-core.workspace = true
-units-proofs.workspace = true
 units-storage-impl.workspace = true
 curve25519-dalek.workspace = true
 bincode.workspace = true

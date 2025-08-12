@@ -2,8 +2,8 @@ use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::locks::PersistentLockManager;
 use units_core::objects::UnitsObject;
+use units_core::proofs::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
 use units_core::transaction::{CommitmentLevel, TransactionReceipt};
-use units_proofs::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -16,14 +16,14 @@ use std::path::Path;
 pub type ObjectIterator = Box<dyn Iterator<Item = Result<UnitsObject, StorageError>>>;
 
 /// Iterator for object proofs in storage
-pub type ProofIterator = Box<dyn Iterator<Item = Result<(SlotNumber, UnitsObjectProof), StorageError>>>;
+pub type ProofIterator =
+    Box<dyn Iterator<Item = Result<(SlotNumber, UnitsObjectProof), StorageError>>>;
 
 /// Iterator for state proofs in storage
 pub type StateProofIterator = Box<dyn Iterator<Item = Result<StateProof, StorageError>>>;
 
 /// Iterator for transaction receipts in storage
 pub type ReceiptIterator = Box<dyn Iterator<Item = Result<TransactionReceipt, StorageError>>>;
-
 
 //==============================================================================
 // CONSOLIDATED STORAGE INTERFACE
@@ -113,10 +113,8 @@ pub trait UnitsStorage {
     fn get_state_proofs(&self) -> StateProofIterator;
 
     /// Get a state proof for a specific slot
-    fn get_state_proof_at_slot(
-        &self, 
-        slot: SlotNumber
-    ) -> Result<Option<StateProof>, StorageError>;
+    fn get_state_proof_at_slot(&self, slot: SlotNumber)
+        -> Result<Option<StateProof>, StorageError>;
 
     /// Verify a proof for a specific object
     fn verify_proof(
@@ -162,7 +160,9 @@ pub trait UnitsStorage {
 
     /// Initialize the write-ahead log
     fn init_wal(&self, _path: &Path) -> Result<(), StorageError> {
-        Err(StorageError::Unimplemented("WAL not supported by this storage".to_string()))
+        Err(StorageError::Unimplemented(
+            "WAL not supported by this storage".to_string(),
+        ))
     }
 
     /// Record an object update in the write-ahead log
@@ -172,12 +172,15 @@ pub trait UnitsStorage {
         _proof: &UnitsObjectProof,
         _transaction_hash: Option<[u8; 32]>,
     ) -> Result<(), StorageError> {
-        Err(StorageError::Unimplemented("WAL not supported by this storage".to_string()))
+        Err(StorageError::Unimplemented(
+            "WAL not supported by this storage".to_string(),
+        ))
     }
 
     /// Record a state proof in the write-ahead log
     fn record_wal_state_proof(&self, _state_proof: &StateProof) -> Result<(), StorageError> {
-        Err(StorageError::Unimplemented("WAL not supported by this storage".to_string()))
+        Err(StorageError::Unimplemented(
+            "WAL not supported by this storage".to_string(),
+        ))
     }
-
 }

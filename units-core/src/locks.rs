@@ -1,6 +1,6 @@
+use crate::id::UnitsObjectId;
 use serde::{Deserialize, Serialize};
 use std::iter::Iterator;
-use crate::id::UnitsObjectId;
 
 /// Type of lock held on an object
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,7 +60,7 @@ pub trait PersistentLockManager: std::fmt::Debug {
     ///
     /// # Returns
     /// * `Ok(true)` - Lock was successfully acquired
-    /// * `Err` - An error occurred, including if the lock could not be acquired due to conflict 
+    /// * `Err` - An error occurred, including if the lock could not be acquired due to conflict
     ///           (implementations should return a LockConflictError or similar)
     fn acquire_lock(
         &self,
@@ -121,10 +121,7 @@ pub trait PersistentLockManager: std::fmt::Debug {
     /// # Returns
     /// * `Ok(count)` - Number of locks released
     /// * `Err` - An error occurred while trying to release locks
-    fn release_transaction_locks(
-        &self,
-        transaction_hash: &[u8; 32],
-    ) -> Result<usize, Self::Error>;
+    fn release_transaction_locks(&self, transaction_hash: &[u8; 32]) -> Result<usize, Self::Error>;
 
     /// Get all locks held by a transaction
     ///
@@ -145,7 +142,10 @@ pub trait PersistentLockManager: std::fmt::Debug {
     ///
     /// # Returns
     /// An iterator over all locks on the object
-    fn get_object_locks(&self, object_id: &UnitsObjectId) -> Box<dyn UnitsLockIterator<Self::Error> + '_>;
+    fn get_object_locks(
+        &self,
+        object_id: &UnitsObjectId,
+    ) -> Box<dyn UnitsLockIterator<Self::Error> + '_>;
 
     /// Check for expired locks and release them
     ///
@@ -185,12 +185,12 @@ impl<'a, M: PersistentLockManager> ObjectLockGuard<'a, M> {
         // Try to acquire the lock using the persistent lock manager
         // If the lock can't be acquired, the implementation should return an appropriate error
         let acquired = lock_manager.acquire_lock(&object_id, lock_type, &transaction_hash, None)?;
-        
+
         if !acquired {
             // This should not happen if implementations follow the API contract
             panic!("Lock manager returned false without an error");
         }
-        
+
         Ok(Self {
             object_id,
             lock_type,

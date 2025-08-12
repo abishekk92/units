@@ -1,9 +1,8 @@
 #![cfg(feature = "sqlite")]
 
 use crate::lock_manager::SqliteLockManager;
-use units_core::locks::PersistentLockManager;
 use crate::storage_traits::{
-    UnitsStorage, ObjectIterator, ProofIterator, StateProofIterator, ReceiptIterator,
+    ObjectIterator, ProofIterator, ReceiptIterator, StateProofIterator, UnitsStorage,
 };
 use anyhow::{Context, Result};
 use sqlx::{
@@ -19,11 +18,12 @@ use std::{
 use tokio::runtime::Runtime;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
+use units_core::locks::PersistentLockManager;
 use units_core::objects::{ObjectType, TokenType, UnitsObject};
+use units_core::proofs::HashProofEngine;
+use units_core::proofs::SlotNumber;
+use units_core::proofs::{ProofEngine, StateProof, UnitsObjectProof};
 use units_core::transaction::{CommitmentLevel, TransactionReceipt};
-use units_proofs::HashProofEngine;
-use units_proofs::SlotNumber;
-use units_proofs::{ProofEngine, StateProof, UnitsObjectProof};
 
 /// A SQLite-based implementation of the UnitsStorage interface using sqlx.
 pub struct SqliteStorage {
@@ -662,12 +662,16 @@ impl UnitsStorage for SqliteStorage {
     // Proof engine operations - moved from separate trait
     fn generate_state_proof(&self, _slot: Option<SlotNumber>) -> Result<StateProof, StorageError> {
         // Implementation moved from UnitsStorageProofEngine
-        Err(StorageError::Unimplemented("State proof generation temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "State proof generation temporarily disabled during refactor".to_string(),
+        ))
     }
 
     fn get_proof(&self, _id: &UnitsObjectId) -> Result<Option<UnitsObjectProof>, StorageError> {
-        // Implementation moved from UnitsStorageProofEngine  
-        Err(StorageError::Unimplemented("Get proof temporarily disabled during refactor".to_string()))
+        // Implementation moved from UnitsStorageProofEngine
+        Err(StorageError::Unimplemented(
+            "Get proof temporarily disabled during refactor".to_string(),
+        ))
     }
 
     fn get_proof_history(&self, _id: &UnitsObjectId) -> ProofIterator {
@@ -675,9 +679,15 @@ impl UnitsStorage for SqliteStorage {
         Box::new(std::iter::empty())
     }
 
-    fn get_proof_at_slot(&self, _id: &UnitsObjectId, _slot: SlotNumber) -> Result<Option<UnitsObjectProof>, StorageError> {
+    fn get_proof_at_slot(
+        &self,
+        _id: &UnitsObjectId,
+        _slot: SlotNumber,
+    ) -> Result<Option<UnitsObjectProof>, StorageError> {
         // Implementation moved from UnitsStorageProofEngine
-        Err(StorageError::Unimplemented("Get proof at slot temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "Get proof at slot temporarily disabled during refactor".to_string(),
+        ))
     }
 
     fn get_state_proofs(&self) -> StateProofIterator {
@@ -685,28 +695,50 @@ impl UnitsStorage for SqliteStorage {
         Box::new(std::iter::empty())
     }
 
-    fn get_state_proof_at_slot(&self, _slot: SlotNumber) -> Result<Option<StateProof>, StorageError> {
+    fn get_state_proof_at_slot(
+        &self,
+        _slot: SlotNumber,
+    ) -> Result<Option<StateProof>, StorageError> {
         // Implementation moved from UnitsStorageProofEngine
-        Err(StorageError::Unimplemented("Get state proof at slot temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "Get state proof at slot temporarily disabled during refactor".to_string(),
+        ))
     }
 
-    fn verify_proof(&self, _id: &UnitsObjectId, _proof: &UnitsObjectProof) -> Result<bool, StorageError> {
+    fn verify_proof(
+        &self,
+        _id: &UnitsObjectId,
+        _proof: &UnitsObjectProof,
+    ) -> Result<bool, StorageError> {
         // Implementation moved from UnitsStorageProofEngine
-        Err(StorageError::Unimplemented("Verify proof temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "Verify proof temporarily disabled during refactor".to_string(),
+        ))
     }
 
-    fn verify_proof_chain(&self, _id: &UnitsObjectId, _start_slot: SlotNumber, _end_slot: SlotNumber) -> Result<bool, StorageError> {
+    fn verify_proof_chain(
+        &self,
+        _id: &UnitsObjectId,
+        _start_slot: SlotNumber,
+        _end_slot: SlotNumber,
+    ) -> Result<bool, StorageError> {
         // Implementation moved from UnitsStorageProofEngine
-        Err(StorageError::Unimplemented("Verify proof chain temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "Verify proof chain temporarily disabled during refactor".to_string(),
+        ))
     }
 
     // Transaction receipt operations - moved from TransactionReceiptStorage
     fn store_receipt(&self, _receipt: &TransactionReceipt) -> Result<(), StorageError> {
-        Err(StorageError::Unimplemented("Store receipt temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "Store receipt temporarily disabled during refactor".to_string(),
+        ))
     }
 
     fn get_receipt(&self, _hash: &[u8; 32]) -> Result<Option<TransactionReceipt>, StorageError> {
-        Err(StorageError::Unimplemented("Get receipt temporarily disabled during refactor".to_string()))
+        Err(StorageError::Unimplemented(
+            "Get receipt temporarily disabled during refactor".to_string(),
+        ))
     }
 
     fn get_receipts_for_object(&self, _id: &UnitsObjectId) -> ReceiptIterator {
@@ -717,8 +749,14 @@ impl UnitsStorage for SqliteStorage {
         Box::new(std::iter::empty())
     }
 
-    fn update_transaction_commitment(&self, _transaction_hash: &[u8; 32], _commitment_level: CommitmentLevel) -> Result<(), StorageError> {
-        Err(StorageError::Unimplemented("Update transaction commitment temporarily disabled during refactor".to_string()))
+    fn update_transaction_commitment(
+        &self,
+        _transaction_hash: &[u8; 32],
+        _commitment_level: CommitmentLevel,
+    ) -> Result<(), StorageError> {
+        Err(StorageError::Unimplemented(
+            "Update transaction commitment temporarily disabled during refactor".to_string(),
+        ))
     }
 
     // WAL operations - moved from UnitsWriteAheadLog
@@ -726,16 +764,19 @@ impl UnitsStorage for SqliteStorage {
         Ok(()) // SQLite doesn't need separate WAL initialization
     }
 
-    fn record_wal_update(&self, _object: &UnitsObject, _proof: &UnitsObjectProof, _transaction_hash: Option<[u8; 32]>) -> Result<(), StorageError> {
+    fn record_wal_update(
+        &self,
+        _object: &UnitsObject,
+        _proof: &UnitsObjectProof,
+        _transaction_hash: Option<[u8; 32]>,
+    ) -> Result<(), StorageError> {
         Ok(()) // SQLite handles WAL internally
     }
 
     fn record_wal_state_proof(&self, _state_proof: &StateProof) -> Result<(), StorageError> {
         Ok(()) // SQLite handles WAL internally
     }
-
 }
-
 
 impl Iterator for SqliteStorageIterator {
     type Item = Result<UnitsObject, StorageError>;
@@ -800,7 +841,6 @@ impl Iterator for SqliteStorageIterator {
     }
 }
 
-
 impl Iterator for SqliteReceiptIterator {
     type Item = Result<TransactionReceipt, StorageError>;
 
@@ -860,7 +900,6 @@ impl Iterator for SqliteReceiptIterator {
     }
 }
 
-
 impl std::fmt::Debug for SqliteStorage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SqliteStorage")
@@ -869,24 +908,23 @@ impl std::fmt::Debug for SqliteStorage {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
     use units_core::id::UnitsObjectId;
-    use units_core::objects::TokenType;
     use units_core::locks::{AccessIntent, LockInfo, LockType, UnitsLockIterator};
-    use units_proofs::VerificationResult;
+    use units_core::objects::TokenType;
+    use units_core::proofs::VerificationResult;
 
     // Mock lock manager for testing
     #[derive(Debug)]
     struct MockLockManager;
-    
+
     impl PersistentLockManager for MockLockManager {
         type Error = StorageError;
-        
+
         fn acquire_lock(
             &self,
             _object_id: &UnitsObjectId,
@@ -896,7 +934,7 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
-        
+
         fn release_lock(
             &self,
             _object_id: &UnitsObjectId,
@@ -904,14 +942,14 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
-        
+
         fn get_lock_info(
             &self,
             _object_id: &UnitsObjectId,
         ) -> Result<Option<LockInfo>, Self::Error> {
             Ok(None)
         }
-        
+
         fn can_acquire_lock(
             &self,
             _object_id: &UnitsObjectId,
@@ -920,28 +958,28 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
-        
+
         fn release_transaction_locks(
             &self,
             _transaction_hash: &[u8; 32],
         ) -> Result<usize, Self::Error> {
             Ok(0)
         }
-        
+
         fn get_transaction_locks(
             &self,
             _transaction_hash: &[u8; 32],
         ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
             Box::new(std::iter::empty())
         }
-        
+
         fn get_object_locks(
             &self,
             _object_id: &UnitsObjectId,
         ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
             Box::new(std::iter::empty())
         }
-        
+
         fn cleanup_expired_locks(&self) -> Result<usize, Self::Error> {
             Ok(0)
         }
@@ -1066,16 +1104,16 @@ mod tests {
             transaction_hash: Option<[u8; 32]>,
         ) -> Result<UnitsObjectProof, StorageError> {
             let slot = self.next_slot();
-            
+
             // Get previous proof if exists
             let previous_proof = self.get_proof(object.id())?;
-            
+
             let mut proof = self.proof_engine.generate_object_proof(
                 object,
                 previous_proof.as_ref(),
                 transaction_hash,
             )?;
-            
+
             // Override the slot for testing to ensure sequential slots
             proof.slot = slot;
 
@@ -1086,7 +1124,8 @@ mod tests {
 
             // Store the proof
             let mut proofs = self.proofs.lock().unwrap();
-            proofs.entry(*object.id())
+            proofs
+                .entry(*object.id())
                 .or_insert_with(Vec::new)
                 .push((proof.slot, proof.clone()));
 
@@ -1099,22 +1138,22 @@ mod tests {
             transaction_hash: Option<[u8; 32]>,
         ) -> Result<UnitsObjectProof, StorageError> {
             let slot = self.next_slot();
-            
+
             // Get the object before deletion
-            let object = self.get(id)?.ok_or_else(|| 
-                StorageError::NotFound(format!("Object {} not found", id))
-            )?;
-            
+            let object = self
+                .get(id)?
+                .ok_or_else(|| StorageError::NotFound(format!("Object {} not found", id)))?;
+
             // Get previous proof
             let previous_proof = self.get_proof(id)?;
-            
+
             // For deletion, we generate a proof of the last state before deletion
             let mut proof = self.proof_engine.generate_object_proof(
                 &object,
                 previous_proof.as_ref(),
                 transaction_hash,
             )?;
-            
+
             // Override the slot for testing to ensure sequential slots
             proof.slot = slot;
 
@@ -1125,7 +1164,8 @@ mod tests {
 
             // Store the proof
             let mut proofs = self.proofs.lock().unwrap();
-            proofs.entry(*id)
+            proofs
+                .entry(*id)
                 .or_insert_with(Vec::new)
                 .push((proof.slot, proof.clone()));
 
@@ -1135,7 +1175,7 @@ mod tests {
         fn scan(&self) -> ObjectIterator {
             let objects = self.objects.lock().unwrap();
             let all_objects: Vec<UnitsObject> = objects.values().cloned().collect();
-            
+
             Box::new(MockStorageIterator {
                 objects: all_objects,
                 index: 0,
@@ -1168,40 +1208,41 @@ mod tests {
             Ok(proofs)
         }
 
-        fn generate_state_proof(&self, slot: Option<SlotNumber>) -> Result<StateProof, StorageError> {
+        fn generate_state_proof(
+            &self,
+            slot: Option<SlotNumber>,
+        ) -> Result<StateProof, StorageError> {
             let slot = slot.unwrap_or_else(|| self.next_slot());
-            
+
             // Collect all current object proofs
             let proofs = self.proofs.lock().unwrap();
             let mut object_proofs = Vec::new();
-            
+
             for (id, proof_vec) in proofs.iter() {
                 if let Some((_, last_proof)) = proof_vec.last() {
                     object_proofs.push((*id, last_proof.clone()));
                 }
             }
             drop(proofs);
-            
+
             // Get previous state proof if any
             let state_proofs = self.state_proofs.lock().unwrap();
             let prev_state_proof = state_proofs.values().max_by_key(|p| p.slot);
-            
-            let state_proof = self.proof_engine.generate_state_proof(
-                &object_proofs,
-                prev_state_proof,
-                slot,
-            )?;
-            
+
+            let state_proof =
+                self.proof_engine
+                    .generate_state_proof(&object_proofs, prev_state_proof, slot)?;
+
             Ok(state_proof)
         }
 
         fn generate_and_store_state_proof(&self) -> Result<StateProof, StorageError> {
             let state_proof = self.generate_state_proof(None)?;
-            
+
             // Store the state proof
             let mut state_proofs = self.state_proofs.lock().unwrap();
             state_proofs.insert(state_proof.slot, state_proof.clone());
-            
+
             Ok(state_proof)
         }
 
@@ -1257,7 +1298,7 @@ mod tests {
         fn get_state_proofs(&self) -> StateProofIterator {
             let state_proofs = self.state_proofs.lock().unwrap();
             let all_proofs: Vec<StateProof> = state_proofs.values().cloned().collect();
-            
+
             Box::new(MockStateProofIterator {
                 proofs: all_proofs,
                 index: 0,
@@ -1278,10 +1319,10 @@ mod tests {
             proof: &UnitsObjectProof,
         ) -> Result<bool, StorageError> {
             // Get the object to verify against
-            let object = self.get(id)?.ok_or_else(|| 
-                StorageError::NotFound(format!("Object {} not found", id))
-            )?;
-            
+            let object = self
+                .get(id)?
+                .ok_or_else(|| StorageError::NotFound(format!("Object {} not found", id)))?;
+
             // Use the proof engine to verify
             self.proof_engine.verify_object_proof(&object, proof)
         }
@@ -1355,7 +1396,10 @@ mod tests {
             Ok(())
         }
 
-        fn get_receipt(&self, _hash: &[u8; 32]) -> Result<Option<TransactionReceipt>, StorageError> {
+        fn get_receipt(
+            &self,
+            _hash: &[u8; 32],
+        ) -> Result<Option<TransactionReceipt>, StorageError> {
             // Mock implementation
             Ok(None)
         }

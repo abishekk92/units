@@ -1,7 +1,7 @@
+use crate::error::StorageError;
+use crate::id::UnitsObjectId;
+use crate::objects::UnitsObject;
 use serde::{Deserialize, Serialize};
-use units_core::error::StorageError;
-use units_core::id::UnitsObjectId;
-use units_core::objects::UnitsObject;
 
 /// Slot number type (represents points in time)
 pub type SlotNumber = u64;

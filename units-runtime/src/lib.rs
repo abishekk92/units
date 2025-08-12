@@ -6,12 +6,11 @@ pub mod runtime_backend;
 pub use runtime::Runtime;
 pub use units_core::transaction::{TransactionEffect, TransactionReceipt};
 // Re-export moved traits from units-storage-impl
-pub use units_storage_impl::storage_traits::{ReceiptIterator};
+pub use units_storage_impl::storage_traits::ReceiptIterator;
 
 // Re-export types from units-core
 pub use units_core::locks::AccessIntent;
 pub use units_core::transaction::{ConflictResult, Instruction, Transaction, TransactionHash};
-
 
 // Re-export runtime backend types
 pub use runtime_backend::{
@@ -23,4 +22,4 @@ pub use runtime_backend::{
 pub use mock_runtime::{InMemoryReceiptStorage, MockRuntime};
 
 // Re-export VerificationResult from units-proofs
-pub use units_proofs::VerificationResult;
+pub use units_core::proofs::VerificationResult;

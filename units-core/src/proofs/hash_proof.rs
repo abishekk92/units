@@ -1,8 +1,8 @@
-use crate::engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
+use super::engine::{ProofEngine, SlotNumber, StateProof, UnitsObjectProof};
+use crate::error::StorageError;
+use crate::id::UnitsObjectId;
+use crate::objects::UnitsObject;
 use blake3;
-use units_core::error::StorageError;
-use units_core::id::UnitsObjectId;
-use units_core::objects::UnitsObject;
 
 /// A hash-based proof engine that creates proofs using BLAKE3 hashes
 /// This provides a straightforward implementation without complex data structures
@@ -25,10 +25,10 @@ impl ProofEngine for HashProofEngine {
         // Create a simple hash-based proof
         let object_hash: [u8; 32] = blake3::hash(object.data()).into();
         let prev_proof_hash = prev_proof.map(|p| p.hash());
-        
+
         // Create proof data that's just the object hash
         let proof_data = object_hash.to_vec();
-        
+
         // Use current time as slot number (simplified)
         let slot = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

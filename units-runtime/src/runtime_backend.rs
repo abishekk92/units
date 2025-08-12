@@ -31,13 +31,13 @@ pub struct InstructionContext<'a> {
 pub enum ExecutionError {
     #[error("Program execution not supported: {0:?}")]
     ProgramExecutionNotSupported(RuntimeType),
-    
+
     #[error("Object not found: {0}")]
     ObjectNotFound(UnitsObjectId),
-    
+
     #[error("Invalid program: {0}")]
     InvalidProgram(UnitsObjectId),
-    
+
     #[error("Execution failed: {0}")]
     ExecutionFailed(String),
 }
@@ -54,12 +54,12 @@ impl StubRuntimeBackend {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Get the default runtime type (for compatibility)
     pub fn default_runtime_type(&self) -> RuntimeType {
         RuntimeType::Wasm // Default to WASM for compatibility
     }
-    
+
     /// Execute a program call instruction (always returns error in simplified implementation)
     pub fn execute_program_call<'a>(
         &self,

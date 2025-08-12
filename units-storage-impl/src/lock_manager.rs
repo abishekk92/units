@@ -1,12 +1,14 @@
+#[cfg(feature = "sqlite")]
+use sqlx::Row;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
-use units_core::locks::{AccessIntent, LockInfo, LockType, PersistentLockManager, UnitsLockIterator};
-use std::time::{SystemTime, UNIX_EPOCH};
-#[cfg(feature = "sqlite")]
-use sqlx::Row;
+use units_core::locks::{
+    AccessIntent, LockInfo, LockType, PersistentLockManager, UnitsLockIterator,
+};
 
 /// Direct implementation of the PersistentLockManager trait from units-core
 /// The LockManagerTrait is no longer needed as we can directly implement PersistentLockManager
@@ -34,7 +36,8 @@ pub struct SqliteLockManager {
 impl SqliteLockManager {
     /// Create a new SqliteLockManager with the given SQLite connection pool
     pub fn new(pool: sqlx::SqlitePool) -> Self {
-        let rt = Arc::new(Runtime::new().expect("Failed to create Tokio runtime for SqliteLockManager"));
+        let rt =
+            Arc::new(Runtime::new().expect("Failed to create Tokio runtime for SqliteLockManager"));
         Self { pool, rt }
     }
 
@@ -78,9 +81,7 @@ impl SqliteLockManager {
         .bind(object_id.as_ref())
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| {
-            StorageError::Database(format!("Failed to query lock for object: {}", e))
-        })?;
+        .map_err(|e| StorageError::Database(format!("Failed to query lock for object: {}", e)))?;
 
         if let Some(row) = result {
             let lock_type_str: String = row.get("lock_type");
@@ -131,9 +132,7 @@ impl SqliteLockManager {
         .bind(object_id.as_ref())
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            StorageError::Database(format!("Failed to query locks for object: {}", e))
-        })?;
+        .map_err(|e| StorageError::Database(format!("Failed to query locks for object: {}", e)))?;
 
         let mut lock_infos = Vec::with_capacity(results.len());
         for row in results {
@@ -187,9 +186,7 @@ impl SqliteLockManager {
         .bind(transaction_hash.as_ref())
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| {
-            StorageError::Database(format!("Failed to query transaction lock: {}", e))
-        })?;
+        .map_err(|e| StorageError::Database(format!("Failed to query transaction lock: {}", e)))?;
 
         if let Some(row) = result {
             let lock_type_str: String = row.get("lock_type");
@@ -227,7 +224,9 @@ impl SqliteLockManager {
         transaction_hash: &[u8; 32],
     ) -> Result<bool, StorageError> {
         // Check if the transaction already holds a lock
-        let has_lock = self.check_transaction_has_lock(object_id, transaction_hash).await?;
+        let has_lock = self
+            .check_transaction_has_lock(object_id, transaction_hash)
+            .await?;
         if has_lock.is_some() {
             return Ok(true); // This transaction already has a lock, so it's compatible
         }
@@ -267,18 +266,20 @@ impl PersistentLockManager for SqliteLockManager {
         // Use shared runtime for async operations
         self.rt.block_on(async {
             // Check if this transaction already has a lock
-            let existing_lock = self.check_transaction_has_lock(object_id, transaction_hash).await?;
+            let existing_lock = self
+                .check_transaction_has_lock(object_id, transaction_hash)
+                .await?;
             if let Some(lock) = existing_lock {
                 // If the transaction already has a write lock, it's compatible with any request
                 if lock.lock_type == LockType::Write {
                     return Ok(true);
                 }
-                
+
                 // If the transaction has a read lock and wants a read lock, it's fine
                 if lock.lock_type == LockType::Read && lock_type == LockType::Read {
                     return Ok(true);
                 }
-                
+
                 // If the transaction has a read lock and wants a write lock, we need to check if upgrade is possible
                 if lock.lock_type == LockType::Read && lock_type == LockType::Write {
                     // Check if there are any other read locks on this object
@@ -287,7 +288,7 @@ impl PersistentLockManager for SqliteLockManager {
                         // There are other locks, can't upgrade
                         return Ok(false);
                     }
-                    
+
                     // Only this transaction has a lock, so upgrade is possible
                     // Delete the read lock and create a write lock
                     sqlx::query(
@@ -304,13 +305,15 @@ impl PersistentLockManager for SqliteLockManager {
                     .map_err(|e| {
                         StorageError::Database(format!("Failed to upgrade lock: {}", e))
                     })?;
-                    
+
                     return Ok(true);
                 }
             }
 
             // Check if the requested lock is compatible with existing locks
-            let compatible = self.is_lock_compatible(object_id, lock_type, transaction_hash).await?;
+            let compatible = self
+                .is_lock_compatible(object_id, lock_type, transaction_hash)
+                .await?;
             if !compatible {
                 return Ok(false);
             }
@@ -337,9 +340,7 @@ impl PersistentLockManager for SqliteLockManager {
             .bind(timeout_ms.map(|t| t as i64))
             .execute(&self.pool)
             .await
-            .map_err(|e| {
-                StorageError::Database(format!("Failed to insert lock record: {}", e))
-            })?;
+            .map_err(|e| StorageError::Database(format!("Failed to insert lock record: {}", e)))?;
 
             Ok(true)
         })
@@ -363,20 +364,16 @@ impl PersistentLockManager for SqliteLockManager {
             .bind(transaction_hash.as_ref())
             .execute(&self.pool)
             .await
-            .map_err(|e| {
-                StorageError::Database(format!("Failed to delete lock record: {}", e))
-            })?;
+            .map_err(|e| StorageError::Database(format!("Failed to delete lock record: {}", e)))?;
 
             Ok(result.rows_affected() > 0)
         })
     }
 
-    fn get_lock_info(
-        &self,
-        object_id: &UnitsObjectId,
-    ) -> Result<Option<LockInfo>, Self::Error> {
+    fn get_lock_info(&self, object_id: &UnitsObjectId) -> Result<Option<LockInfo>, Self::Error> {
         // Use shared runtime for async operations
-        self.rt.block_on(async { self.get_object_lock_info_internal(object_id).await })
+        self.rt
+            .block_on(async { self.get_object_lock_info_internal(object_id).await })
     }
 
     fn can_acquire_lock(
@@ -394,27 +391,29 @@ impl PersistentLockManager for SqliteLockManager {
             };
 
             // Check if a lock already exists for this transaction
-            let existing_lock = self.check_transaction_has_lock(object_id, transaction_hash).await?;
+            let existing_lock = self
+                .check_transaction_has_lock(object_id, transaction_hash)
+                .await?;
             if let Some(lock) = existing_lock {
                 // Already has the appropriate lock or better
-                if lock.lock_type == LockType::Write || (lock.lock_type == LockType::Read && lock_type == LockType::Read) {
+                if lock.lock_type == LockType::Write
+                    || (lock.lock_type == LockType::Read && lock_type == LockType::Read)
+                {
                     return Ok(true);
                 }
-                
+
                 // Trying to upgrade from read to write
                 let all_locks = self.get_all_object_locks_internal(object_id).await?;
                 return Ok(all_locks.len() <= 1); // Can upgrade if no other transactions have locks
             }
 
             // Check compatibility with existing locks
-            self.is_lock_compatible(object_id, lock_type, transaction_hash).await
+            self.is_lock_compatible(object_id, lock_type, transaction_hash)
+                .await
         })
     }
 
-    fn release_transaction_locks(
-        &self,
-        transaction_hash: &[u8; 32],
-    ) -> Result<usize, Self::Error> {
+    fn release_transaction_locks(&self, transaction_hash: &[u8; 32]) -> Result<usize, Self::Error> {
         // Use shared runtime for async operations
         self.rt.block_on(async {
             // Delete all locks held by this transaction
@@ -454,7 +453,8 @@ impl PersistentLockManager for SqliteLockManager {
         }) {
             Ok(rows) => rows,
             Err(e) => {
-                let error = StorageError::Database(format!("Failed to query transaction locks: {}", e));
+                let error =
+                    StorageError::Database(format!("Failed to query transaction locks: {}", e));
                 return Box::new(std::iter::once(Err(error)));
             }
         };
@@ -464,7 +464,10 @@ impl PersistentLockManager for SqliteLockManager {
         for row in results {
             let object_id_bytes: Vec<u8> = row.get("object_id");
             if object_id_bytes.len() != 32 {
-                let error = StorageError::Database(format!("Invalid object ID length: {}", object_id_bytes.len()));
+                let error = StorageError::Database(format!(
+                    "Invalid object ID length: {}",
+                    object_id_bytes.len()
+                ));
                 lock_infos.push(Err(error));
                 continue;
             }
@@ -478,7 +481,8 @@ impl PersistentLockManager for SqliteLockManager {
                 "read" => LockType::Read,
                 "write" => LockType::Write,
                 _ => {
-                    let error = StorageError::Database(format!("Unknown lock type: {}", lock_type_str));
+                    let error =
+                        StorageError::Database(format!("Unknown lock type: {}", lock_type_str));
                     lock_infos.push(Err(error));
                     continue;
                 }
@@ -504,7 +508,10 @@ impl PersistentLockManager for SqliteLockManager {
         object_id: &UnitsObjectId,
     ) -> Box<dyn UnitsLockIterator<Self::Error> + '_> {
         // Use shared runtime for async operations
-        match self.rt.block_on(self.get_all_object_locks_internal(object_id)) {
+        match self
+            .rt
+            .block_on(self.get_all_object_locks_internal(object_id))
+        {
             Ok(locks) => {
                 if locks.is_empty() {
                     Box::new(std::iter::empty())
@@ -512,9 +519,7 @@ impl PersistentLockManager for SqliteLockManager {
                     Box::new(locks.into_iter().map(Ok))
                 }
             }
-            Err(e) => {
-                Box::new(std::iter::once(Err(e)))
-            }
+            Err(e) => Box::new(std::iter::once(Err(e))),
         }
     }
 
@@ -548,6 +553,5 @@ impl Debug for SqliteLockManager {
         f.debug_struct("SqliteLockManager").finish()
     }
 }
-
 
 // The adapter is no longer needed as we directly implement PersistentLockManager

@@ -76,7 +76,10 @@ pub trait Runtime {
     fn get_transaction_receipt(&self, hash: &TransactionHash) -> Option<TransactionReceipt>;
 
     /// Rollback a previously executed transaction
-    fn rollback_transaction(&self, transaction_hash: &TransactionHash) -> Result<bool, RuntimeError>;
+    fn rollback_transaction(
+        &self,
+        transaction_hash: &TransactionHash,
+    ) -> Result<bool, RuntimeError>;
 
     /// Update a transaction's commitment level
     fn update_commitment_level(
@@ -84,7 +87,9 @@ pub trait Runtime {
         _transaction_hash: &TransactionHash,
         _commitment_level: CommitmentLevel,
     ) -> Result<(), RuntimeError> {
-        Err(RuntimeError::Unimplemented("Updating commitment level not supported".to_string()))
+        Err(RuntimeError::Unimplemented(
+            "Updating commitment level not supported".to_string(),
+        ))
     }
 
     /// Commit a transaction

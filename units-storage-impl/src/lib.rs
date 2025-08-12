@@ -6,10 +6,8 @@ pub mod sqlite;
 
 // Re-export the main types for convenience
 pub use storage_traits::{
-    ObjectIterator, ProofIterator, ReceiptIterator, StateProofIterator,
-    UnitsStorage,
+    ObjectIterator, ProofIterator, ReceiptIterator, StateProofIterator, UnitsStorage,
 };
-
 
 // Re-export lock manager implementations
 #[cfg(feature = "sqlite")]

@@ -4,16 +4,16 @@ use std::sync::Mutex;
 use units_core::error::{RuntimeError, StorageError};
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
+use units_core::proofs::SlotNumber;
 use units_core::scheduler::{BasicConflictChecker, ConflictChecker};
 use units_core::transaction::{
     CommitmentLevel, ConflictResult, Transaction, TransactionEffect, TransactionHash,
     TransactionReceipt,
 };
-use units_proofs::SlotNumber;
 
 use crate::runtime::Runtime;
 use crate::runtime_backend::{RuntimeBackendManager, StubRuntimeBackend};
-use units_storage_impl::storage_traits::{ReceiptIterator};
+use units_storage_impl::storage_traits::ReceiptIterator;
 
 /// Mock implementation of the Runtime trait for testing purposes
 pub struct MockRuntime {
@@ -92,7 +92,8 @@ impl Runtime for MockRuntime {
 
         // Use the BasicConflictChecker from units-core
         let checker = BasicConflictChecker::new();
-        checker.check_conflicts(transaction, &recent_transactions)
+        checker
+            .check_conflicts(transaction, &recent_transactions)
             .map_err(|err| RuntimeError::Transaction(err))
     }
 
@@ -172,17 +173,28 @@ impl Runtime for MockRuntime {
         receipt
     }
 
-    fn rollback_transaction(&self, transaction_hash: &TransactionHash) -> Result<bool, RuntimeError> {
+    fn rollback_transaction(
+        &self,
+        transaction_hash: &TransactionHash,
+    ) -> Result<bool, RuntimeError> {
         // Check if the transaction exists
         let transaction = match self.get_transaction(transaction_hash) {
             Some(tx) => tx,
-            None => return Err(RuntimeError::Transaction("Transaction not found".to_string())),
+            None => {
+                return Err(RuntimeError::Transaction(
+                    "Transaction not found".to_string(),
+                ))
+            }
         };
 
         // Check if we have a receipt for this transaction
         match self.get_transaction_receipt(transaction_hash) {
             Some(receipt) => receipt,
-            None => return Err(RuntimeError::Transaction("Transaction receipt not found".to_string())),
+            None => {
+                return Err(RuntimeError::Transaction(
+                    "Transaction receipt not found".to_string(),
+                ))
+            }
         };
 
         // Check if the transaction can be rolled back based on its commitment level
@@ -235,12 +247,12 @@ impl Runtime for MockRuntime {
                 // Cannot change from Committed or Failed
                 (CommitmentLevel::Committed, _) => {
                     return Err(RuntimeError::Transaction(
-                        "Cannot change commitment level of a Committed transaction".to_string()
+                        "Cannot change commitment level of a Committed transaction".to_string(),
                     ));
                 }
                 (CommitmentLevel::Failed, _) => {
                     return Err(RuntimeError::Transaction(
-                        "Cannot change commitment level of a Failed transaction".to_string()
+                        "Cannot change commitment level of a Failed transaction".to_string(),
                     ));
                 }
             }
@@ -248,7 +260,9 @@ impl Runtime for MockRuntime {
             tx.commitment_level = commitment_level;
             mock.transactions.insert(*transaction_hash, tx);
         } else {
-            return Err(RuntimeError::Transaction("Transaction not found".to_string()));
+            return Err(RuntimeError::Transaction(
+                "Transaction not found".to_string(),
+            ));
         }
 
         // Update receipt commitment level
@@ -326,7 +340,6 @@ impl Iterator for InMemoryReceiptIterator {
         }
     }
 }
-
 
 impl InMemoryReceiptStorage {
     pub fn store_receipt(&self, receipt: &TransactionReceipt) -> Result<(), StorageError> {
