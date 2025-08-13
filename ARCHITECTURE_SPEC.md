@@ -839,58 +839,6 @@ pub struct TransactionReceipt {
 }
 ```
 
-## Migration Strategy
-
-### Backward Compatibility
-- New UnitsObject coexists with current ObjectType/ObjectMetadata
-- Gradual migration of objects to new format
-- RuntimeBackend system maintained alongside new VM executors
-- Existing tests continue to pass during transition
-
-### Implementation Phases
-1. **Phase 1**: Unified UnitsObject struct and basic RISC-V execution
-2. **Phase 2**: Complete transaction pipeline integration  
-3. **Phase 3**: Attestation and advanced security features
-4. **Phase 4**: Additional VM types (WASM, eBPF) and cross-controller communication
-
-## Implementation Status
-
-### ✅ Currently Implemented
-- **RISC-V VM Execution**: Production-ready with rvsim integration
-- **Unified Object Model**: Complete UnitsObject structure
-- **Storage Traits**: Clean separation of concerns (units-storage vs units-storage-impl)
-- **Kernel SDK**: Safe Rust development framework with allocator abstraction
-- **Token Module**: Reference implementation in pure Rust
-- **Transaction Processing**: ObjectEffect validation and application
-- **Proof Generation**: Cryptographic object state commitments
-
-### 🚧 Planned Extensions
-
-#### Additional VM Types
-- **WebAssembly**: WASM module execution (architecture defined, implementation pending)
-- **eBPF**: eBPF program support (architecture defined, implementation pending)  
-- **Native**: x86_64 native code execution (architecture defined, implementation pending)
-
-#### Cross-Controller Communication
-- Remove single-controller validation constraint
-- Add controller dependency resolution
-- Implement secure cross-controller call interface
-
-#### Multi-Runtime Optimization  
-- Runtime detection via bytecode headers
-- JIT compilation for performance-critical controllers
-- Native code generation for trusted system controllers
-
-#### Distributed Execution
-- Network attestation protocols
-- Consensus integration for distributed object modifications
-- Cross-node object effect synchronization
-
-### Migration Notes
-- Current implementation uses simplified TransactionEffect (single object per effect)
-- Future versions will expand to multi-object transactions
-- VM interface designed for extensibility - new VM types can be added without breaking changes
-
 ## References
 
 - RISC-V Specification: https://riscv.org/specifications/
