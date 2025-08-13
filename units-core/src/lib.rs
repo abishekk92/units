@@ -1,3 +1,4 @@
+pub mod constants;
 pub mod error;
 pub mod id;
 pub mod locks;
@@ -7,13 +8,19 @@ pub mod transaction;
 pub mod scheduler;
 
 // Re-export the main types for convenience
+pub use constants::{
+    SYSTEM_LOADER_ID,
+    TOKEN_CONTROLLER_ID,
+    ACCOUNT_CONTROLLER_ID,
+    MODULE_MANAGER_ID,
+    is_system_controller,
+};
 pub use error::StorageError;
 pub use id::UnitsObjectId;
 pub use objects::{
-    TokenType, 
-    UnitsObject,
+    VMType,
     ObjectType,
-    ObjectMetadata
+    UnitsObject,
 };
 
 // Re-export lock types

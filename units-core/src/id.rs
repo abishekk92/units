@@ -44,7 +44,7 @@ impl Deref for UnitsObjectId {
 }
 
 impl UnitsObjectId {
-    pub fn new(uid: [u8; 32]) -> Self {
+    pub const fn new(uid: [u8; 32]) -> Self {
         UnitsObjectId(uid)
     }
 

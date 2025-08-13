@@ -205,10 +205,8 @@ mod tests {
     use units_core::proofs::merkle_proof::MerkleProofEngine;
 
     fn create_test_object() -> UnitsObject {
-        UnitsObject::new_token(
+        UnitsObject::new_data(
             UnitsObjectId::unique_id_for_tests(),
-            UnitsObjectId::unique_id_for_tests(),
-            units_core::objects::TokenType::Native,
             UnitsObjectId::unique_id_for_tests(),
             vec![1, 2, 3, 4],
         )
@@ -231,11 +229,9 @@ mod tests {
         assert_eq!(result, VerificationResult::Valid);
 
         // Modify the object and verify the proof should fail
-        let modified_object = UnitsObject::new_token(
+        let modified_object = UnitsObject::new_data(
             *object.id(),
-            *object.owner(),
-            object.token_type().unwrap(),
-            *object.token_manager().unwrap(),
+            *object.controller_id(),
             vec![5, 6, 7, 8],
         );
 

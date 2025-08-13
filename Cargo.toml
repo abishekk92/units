@@ -4,11 +4,14 @@ members = [
     "units-core",
     "units-storage-impl",
     "units-runtime",
+    "units-kernel-sdk",
+    "units-kernel-modules/token",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["Units Team"]
 license = "MIT"
 repository = "https://github.com/abisshekk92/units-storage"
 readme = "README.md"
@@ -28,8 +31,10 @@ anyhow = "1.0"
 log = "0.4"
 tempfile = "3.8"
 hex = "0.4.3"
+borsh = { version = "1.5", features = ["derive"] }
 
 # Internal crates
 units-core = { path = "./units-core" }
 units-storage-impl = { path = "./units-storage-impl" }
 units-runtime = { path = "./units-runtime" }
+units-kernel-sdk = { path = "./units-kernel-sdk" }
