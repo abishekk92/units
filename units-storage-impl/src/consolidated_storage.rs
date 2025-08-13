@@ -9,12 +9,14 @@ use std::sync::RwLock;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof};
+use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof, ConcreteProofEngine};
 
-/// Simple in-memory object storage implementation
+/// Simple in-memory object storage implementation with integrated proof generation
 pub struct InMemoryObjectStorage {
     objects: RwLock<HashMap<UnitsObjectId, UnitsObject>>,
     history: RwLock<HashMap<(UnitsObjectId, SlotNumber), UnitsObject>>,
+    proof_history: RwLock<HashMap<UnitsObjectId, Vec<UnitsObjectProof>>>,
+    proof_engine: ConcreteProofEngine,
 }
 
 impl InMemoryObjectStorage {
@@ -22,7 +24,15 @@ impl InMemoryObjectStorage {
         Self {
             objects: RwLock::new(HashMap::new()),
             history: RwLock::new(HashMap::new()),
+            proof_history: RwLock::new(HashMap::new()),
+            proof_engine: ConcreteProofEngine::new(),
         }
+    }
+    
+    /// Get the most recent proof for an object
+    pub fn get_latest_proof(&self, id: &UnitsObjectId) -> Option<UnitsObjectProof> {
+        let proof_history = self.proof_history.read().unwrap();
+        proof_history.get(id)?.last().cloned()
     }
 }
 
@@ -41,39 +51,84 @@ impl ObjectStorage for InMemoryObjectStorage {
     fn set(
         &self,
         object: &UnitsObject,
-        _transaction_hash: Option<[u8; 32]>,
+        transaction_hash: Option<[u8; 32]>,
     ) -> Result<UnitsObjectProof, StorageError> {
-        let mut objects = self.objects.write().unwrap();
-        objects.insert(*object.id(), object.clone());
+        // Get the previous proof for chaining
+        let prev_proof = self.get_latest_proof(object.id());
         
-        // Create a simple proof (this would be more complex in reality)
-        Ok(UnitsObjectProof {
-            object_id: *object.id(),
-            slot: 0, // Would be current slot
-            object_hash: [0u8; 32], // Would be actual object hash
-            prev_proof_hash: None,
-            transaction_hash: _transaction_hash,
-            proof_data: vec![], // Would be actual proof data
-        })
+        // Generate cryptographic proof using the proof engine
+        let proof = self.proof_engine.generate_object_proof(
+            object,
+            prev_proof.as_ref(),
+            transaction_hash,
+        )?;
+        
+        // Store the object with current slot in history
+        {
+            let mut history = self.history.write().unwrap();
+            history.insert((*object.id(), proof.slot), object.clone());
+        }
+        
+        // Update current object state
+        {
+            let mut objects = self.objects.write().unwrap();
+            objects.insert(*object.id(), object.clone());
+        }
+        
+        // Store the proof in history
+        {
+            let mut proof_history = self.proof_history.write().unwrap();
+            proof_history.entry(*object.id())
+                .or_insert_with(Vec::new)
+                .push(proof.clone());
+        }
+        
+        Ok(proof)
     }
     
     fn delete(
         &self,
         id: &UnitsObjectId,
-        _transaction_hash: Option<[u8; 32]>,
+        transaction_hash: Option<[u8; 32]>,
     ) -> Result<UnitsObjectProof, StorageError> {
-        let mut objects = self.objects.write().unwrap();
-        objects.remove(id);
+        // Get the object before deletion for proof generation
+        let object = {
+            let objects = self.objects.read().unwrap();
+            objects.get(id).cloned()
+                .ok_or_else(|| StorageError::NotFound(format!("Object not found: {:?}", id)))?
+        };
         
-        // Create a simple proof for deletion
-        Ok(UnitsObjectProof {
-            object_id: *id,
-            slot: 0,
-            object_hash: [0u8; 32], // Would be actual object hash
-            prev_proof_hash: None,
-            transaction_hash: _transaction_hash,
-            proof_data: vec![],
-        })
+        // Get the previous proof for chaining
+        let prev_proof = self.get_latest_proof(id);
+        
+        // Generate cryptographic proof for deletion
+        let proof = self.proof_engine.generate_object_proof(
+            &object,
+            prev_proof.as_ref(),
+            transaction_hash,
+        )?;
+        
+        // Store the deletion in history with current slot
+        {
+            let mut history = self.history.write().unwrap();
+            history.insert((*id, proof.slot), object.clone());
+        }
+        
+        // Remove from current object state
+        {
+            let mut objects = self.objects.write().unwrap();
+            objects.remove(id);
+        }
+        
+        // Store the deletion proof in history
+        {
+            let mut proof_history = self.proof_history.write().unwrap();
+            proof_history.entry(*id)
+                .or_insert_with(Vec::new)
+                .push(proof.clone());
+        }
+        
+        Ok(proof)
     }
     
     fn iter(&self) -> Box<dyn Iterator<Item = Result<UnitsObject, StorageError>> + '_> {

@@ -396,12 +396,17 @@ impl MerkleProofEngine {
         // Serialize the proof
         let serialized = serialize_proof(&proof);
 
-        // Create a new proof
-        let mut units_proof = UnitsObjectProof::new(serialized, None, transaction_hash);
-
-        // Set the object-specific fields that the constructor doesn't handle
-        units_proof.object_id = *object.id();
-        units_proof.object_hash = MerkleTree::hash_object(object);
+        // Create a new proof with all required fields
+        let object_hash = MerkleTree::hash_object(object);
+        let current_slot = crate::proofs::current_slot();
+        let units_proof = UnitsObjectProof::new(
+            *object.id(),
+            object_hash,
+            current_slot,
+            serialized,
+            None,
+            transaction_hash,
+        );
 
         units_proof
     }
@@ -420,12 +425,17 @@ impl ProofEngine for MerkleProofEngine {
         let helper_proof = engine_clone.add_and_generate_proof(object, transaction_hash);
         let proof_data = helper_proof.proof_data.clone();
 
-        // Create a new proof that links to the previous state and includes transaction hash
-        let mut proof = UnitsObjectProof::new(proof_data, prev_proof, transaction_hash);
-
-        // Set the object-specific fields that the constructor doesn't handle
-        proof.object_id = *object.id();
-        proof.object_hash = MerkleTree::hash_object(object);
+        // Create a new proof with all required fields
+        let object_hash = MerkleTree::hash_object(object);
+        let current_slot = crate::proofs::current_slot();
+        let proof = UnitsObjectProof::new(
+            *object.id(),
+            object_hash,
+            current_slot,
+            proof_data,
+            prev_proof,
+            transaction_hash,
+        );
 
         Ok(proof)
     }

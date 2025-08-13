@@ -292,9 +292,7 @@ impl TransactionContext {
         
         // Add proofs to the receipt
         for (id, proof) in self.proofs {
-            if let Ok(serialized) = bincode::serialize(&proof) {
-                receipt.add_proof(id, serialized);
-            }
+            receipt.add_proof(id, proof);
         }
         
         // Add effects

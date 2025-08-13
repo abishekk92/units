@@ -36,14 +36,14 @@ pub struct UnitsObjectProof {
 impl UnitsObjectProof {
     /// Creates a new UnitsObjectProof with the given data
     pub fn new(
+        object_id: UnitsObjectId,
+        object_hash: [u8; 32],
+        slot: SlotNumber,
         proof_data: Vec<u8>,
         prev_proof: Option<&UnitsObjectProof>,
         transaction_hash: Option<[u8; 32]>,
     ) -> Self {
         let prev_proof_hash = prev_proof.map(|p| p.hash());
-        let slot = SlotNumber::default(); // Will be replaced by proper slot logic
-        let object_id = UnitsObjectId::default(); // This should be set by the caller
-        let object_hash = [0u8; 32]; // This should be set by the caller
 
         Self {
             object_id,
@@ -105,11 +105,11 @@ pub struct StateProof {
 impl StateProof {
     /// Creates a new StateProof with the given data
     pub fn new(
+        slot: SlotNumber,
         proof_data: Vec<u8>,
         object_ids: Vec<UnitsObjectId>,
         prev_state_proof: Option<&StateProof>,
     ) -> Self {
-        let slot = SlotNumber::default(); // Will be replaced by proper slot logic
         let prev_state_proof_hash = prev_state_proof.map(|p| p.hash());
 
         Self {

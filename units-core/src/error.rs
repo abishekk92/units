@@ -96,6 +96,10 @@ pub enum StorageError {
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
     
+    /// Errors when input parameters are invalid
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+    
     /// Errors when a feature is not implemented
     #[error("Unimplemented: {0}")]
     Unimplemented(String),

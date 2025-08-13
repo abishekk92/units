@@ -261,9 +261,9 @@ mod tests {
         // Create a receipt
         let mut receipt = TransactionReceipt::new(transaction_hash, 123, true, 456789);
 
-        // Add the proofs to the receipt (now stored as Vec<u8>)
-        receipt.add_proof(*object1.id(), bincode::serialize(&proof1).unwrap());
-        receipt.add_proof(*object2.id(), bincode::serialize(&proof2).unwrap());
+        // Add the proofs to the receipt directly as UnitsObjectProof instances
+        receipt.add_proof(*object1.id(), proof1.clone());
+        receipt.add_proof(*object2.id(), proof2.clone());
 
         // Create a map of objects
         let mut objects = HashMap::new();

@@ -1,6 +1,7 @@
 use crate::id::UnitsObjectId;
 use crate::locks::{ObjectLockGuard, PersistentLockManager};
 use crate::objects::UnitsObject;
+use crate::proofs::{ConcreteProofEngine, UnitsObjectProof};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -292,9 +293,8 @@ pub struct TransactionReceipt {
     /// The slot in which this transaction was processed
     pub slot: u64,
 
-    /// Map of object IDs to their state proofs after the transaction
-    /// This is a simplified representation; implementations will use appropriate proof types
-    pub object_proofs: HashMap<UnitsObjectId, Vec<u8>>,
+    /// Map of object IDs to their cryptographic proofs after the transaction
+    pub object_proofs: HashMap<UnitsObjectId, UnitsObjectProof>,
 
     /// Whether the transaction was executed successfully
     pub success: bool,
@@ -357,8 +357,43 @@ impl TransactionReceipt {
     }
 
     /// Add an object proof to the receipt
-    pub fn add_proof(&mut self, object_id: UnitsObjectId, proof: Vec<u8>) {
+    pub fn add_proof(&mut self, object_id: UnitsObjectId, proof: UnitsObjectProof) {
         self.object_proofs.insert(object_id, proof);
+    }
+    
+    /// Add an effect and automatically generate its corresponding proof
+    pub fn add_effect_with_proof(
+        &mut self, 
+        effect: TransactionEffect,
+        proof_engine: &ConcreteProofEngine,
+        prev_proof: Option<&UnitsObjectProof>,
+    ) -> Result<(), crate::error::StorageError> {
+        // Generate proof for the effect
+        let proof = if let Some(after_object) = &effect.after_image {
+            // Object creation or modification
+            proof_engine.generate_object_proof(
+                after_object,
+                prev_proof,
+                Some(effect.transaction_hash),
+            )?
+        } else if let Some(before_object) = &effect.before_image {
+            // Object deletion - generate proof for the deleted object
+            proof_engine.generate_object_proof(
+                before_object,
+                prev_proof,
+                Some(effect.transaction_hash),
+            )?
+        } else {
+            return Err(crate::error::StorageError::InvalidOperation(
+                "Effect must have either before_image or after_image".to_string()
+            ));
+        };
+        
+        // Add both effect and proof
+        self.effects.push(effect.clone());
+        self.object_proofs.insert(effect.object_id, proof);
+        
+        Ok(())
     }
 
     /// Add an effect to the receipt
@@ -366,7 +401,7 @@ impl TransactionReceipt {
         self.effects.push(effect);
     }
 
-    /// Add a new object effect to the receipt
+    /// Add a new object effect to the receipt (without automatic proof generation)
     pub fn add_object_effect(
         &mut self,
         transaction_hash: TransactionHash,
@@ -382,6 +417,26 @@ impl TransactionReceipt {
         };
         
         self.effects.push(effect);
+    }
+    
+    /// Add a new object effect to the receipt with automatic proof generation
+    pub fn add_object_effect_with_proof(
+        &mut self,
+        transaction_hash: TransactionHash,
+        object_id: UnitsObjectId,
+        before_image: Option<UnitsObject>,
+        after_image: Option<UnitsObject>,
+        proof_engine: &ConcreteProofEngine,
+        prev_proof: Option<&UnitsObjectProof>,
+    ) -> Result<(), crate::error::StorageError> {
+        let effect = TransactionEffect {
+            transaction_hash,
+            object_id,
+            before_image,
+            after_image,
+        };
+        
+        self.add_effect_with_proof(effect, proof_engine, prev_proof)
     }
 
     /// Set an error message (used when transaction fails)

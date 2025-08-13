@@ -4,6 +4,7 @@
 //! need for the ProofEngine trait abstraction.
 
 use crate::error::StorageError;
+use crate::id::UnitsObjectId;
 use crate::objects::UnitsObject;
 use crate::proofs::{SlotNumber, StateProof, UnitsObjectProof, VerificationResult};
 use blake3;
@@ -28,7 +29,7 @@ impl ProofEngine {
     /// Create a new proof engine
     pub fn new() -> Self {
         Self {
-            current_slot: crate::proofs::current_slot(),
+            current_slot: 0, // Will be updated when generating proofs
         }
     }
     
@@ -53,6 +54,9 @@ impl ProofEngine {
         prev_proof: Option<&UnitsObjectProof>,
         transaction_hash: Option<[u8; 32]>,
     ) -> Result<UnitsObjectProof, StorageError> {
+        // Get current slot from the system
+        let current_slot = crate::proofs::current_slot();
+        
         // Compute object hash
         let object_hash = Self::hash_object(object);
         
@@ -72,7 +76,7 @@ impl ProofEngine {
         
         Ok(UnitsObjectProof {
             object_id: *object.id(),
-            slot: self.current_slot,
+            slot: current_slot,
             object_hash,
             prev_proof_hash: proof_data.prev_proof_hash,
             transaction_hash,
@@ -217,6 +221,16 @@ impl ProofEngine {
         objects: &[UnitsObject],
         prev_state_proof: Option<&StateProof>,
     ) -> Result<StateProof, StorageError> {
+        self.generate_state_proof_for_slot(objects, prev_state_proof, crate::proofs::current_slot())
+    }
+    
+    /// Generate a state proof for a specific slot
+    pub fn generate_state_proof_for_slot(
+        &self,
+        objects: &[UnitsObject],
+        prev_state_proof: Option<&StateProof>,
+        slot: SlotNumber,
+    ) -> Result<StateProof, StorageError> {
         // Extract object IDs
         let object_ids: Vec<_> = objects.iter().map(|o| *o.id()).collect();
         
@@ -238,7 +252,7 @@ impl ProofEngine {
             .map_err(|e| StorageError::Serialization(e.to_string()))?;
         
         Ok(StateProof {
-            slot: self.current_slot,
+            slot,
             prev_state_proof_hash: prev_state_proof.map(|p| p.hash()),
             object_ids,
             proof_data: serialized,
@@ -342,6 +356,90 @@ impl ProofEngine {
         
         Ok(hashes[0])
     }
+    
+    /// Compute Merkle root from a vector of hashes
+    fn compute_merkle_root_from_hashes(&self, input_hashes: &[[u8; 32]]) -> Result<[u8; 32], StorageError> {
+        if input_hashes.is_empty() {
+            return Ok([0u8; 32]);
+        }
+        
+        let mut hashes = input_hashes.to_vec();
+        
+        // Build Merkle tree
+        while hashes.len() > 1 {
+            let mut next_level = Vec::new();
+            
+            for chunk in hashes.chunks(2) {
+                let combined = if chunk.len() == 2 {
+                    let mut hasher = blake3::Hasher::new();
+                    hasher.update(&chunk[0]);
+                    hasher.update(&chunk[1]);
+                    hasher.finalize().into()
+                } else {
+                    chunk[0]
+                };
+                next_level.push(combined);
+            }
+            
+            hashes = next_level;
+        }
+        
+        Ok(hashes[0])
+    }
+    
+    //--------------------------------------------------------------------------
+    // SLOT PROOF AGGREGATION
+    //--------------------------------------------------------------------------
+    
+    /// Aggregate object proofs from a slot into a state proof (slot proof)
+    pub fn aggregate_slot_proofs(
+        &self,
+        slot: SlotNumber,
+        object_proofs: &[(UnitsObjectId, UnitsObjectProof)],
+        prev_state_proof: Option<&StateProof>,
+    ) -> Result<StateProof, StorageError> {
+        // Validate all proofs are for the same slot
+        for (_, proof) in object_proofs {
+            if proof.slot != slot {
+                return Err(StorageError::InvalidInput(format!(
+                    "Object proof slot {} doesn't match target slot {}", 
+                    proof.slot, slot
+                )));
+            }
+        }
+        
+        // Extract object IDs and create aggregated proof data
+        let object_ids: Vec<_> = object_proofs.iter().map(|(id, _)| *id).collect();
+        
+        // Compute Merkle root of all object proof hashes
+        let proof_hashes: Vec<[u8; 32]> = object_proofs.iter()
+            .map(|(_, proof)| proof.hash())
+            .collect();
+        
+        let merkle_root = self.compute_merkle_root_from_hashes(&proof_hashes)?;
+        
+        // Create aggregated proof data
+        let proof_data = SlotProofData {
+            merkle_root,
+            object_count: object_proofs.len() as u64,
+            slot,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        };
+        
+        // Serialize proof data
+        let serialized = bincode::serialize(&proof_data)
+            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+        
+        Ok(StateProof {
+            slot,
+            prev_state_proof_hash: prev_state_proof.map(|p| p.hash()),
+            object_ids,
+            proof_data: serialized,
+        })
+    }
 }
 
 //==============================================================================
@@ -369,6 +467,22 @@ struct StateProofData {
     
     /// Number of objects in the state
     object_count: u64,
+    
+    /// Timestamp when proof was created
+    timestamp: u64,
+}
+
+/// Data stored in slot proofs (aggregated object proofs from a slot)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SlotProofData {
+    /// Merkle root of all object proof hashes from this slot
+    merkle_root: [u8; 32],
+    
+    /// Number of objects modified in this slot
+    object_count: u64,
+    
+    /// The slot number this proof aggregates
+    slot: SlotNumber,
     
     /// Timestamp when proof was created
     timestamp: u64,

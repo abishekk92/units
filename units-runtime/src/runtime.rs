@@ -138,12 +138,29 @@ mod tests {
         let object_id1 = UnitsObjectId::unique_id_for_tests();
         let object_id2 = UnitsObjectId::unique_id_for_tests();
 
-        // In the new implementation, proofs are stored as serialized bytes
-        let proof1_data = vec![1, 2, 3];
-        let proof2_data = vec![4, 5, 6];
+        // Create proper UnitsObjectProof instances for testing
+        use units_core::proofs::{UnitsObjectProof, current_slot};
+        
+        let proof1 = UnitsObjectProof::new(
+            object_id1,
+            [1u8; 32],
+            current_slot(),
+            vec![1, 2, 3],
+            None,
+            None,
+        );
+        
+        let proof2 = UnitsObjectProof::new(
+            object_id2,
+            [2u8; 32],
+            current_slot(),
+            vec![4, 5, 6],
+            None,
+            None,
+        );
 
-        receipt.add_proof(object_id1, proof1_data.clone());
-        receipt.add_proof(object_id2, proof2_data.clone());
+        receipt.add_proof(object_id1, proof1);
+        receipt.add_proof(object_id2, proof2);
 
         // Verify the proofs were added
         assert_eq!(receipt.object_count(), 2);
