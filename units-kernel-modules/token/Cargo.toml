@@ -5,28 +5,30 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-units-core = { workspace = true }
-serde = { workspace = true }
-borsh = { workspace = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
+units-kernel-sdk = { path = "../../units-kernel-sdk", default-features = false }
+borsh = { version = "1.5", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 units-runtime = { path = "../../units-runtime" }
 tokio = { version = "1.0", features = ["rt", "macros"] }
 
-[build-dependencies]
-cc = "1.0"
+# No longer need cc for building C code
 
 [lib]
 name = "token"
-crate-type = ["lib", "staticlib"]
+crate-type = ["lib"]
 
 [[bin]]
-name = "token-test"
-path = "src/test_harness.rs"
-required-features = ["test-harness"]
+name = "token"
+path = "src/main.rs"
 
 [features]
-default = []
-test-harness = []
+default = ["std"]
+std = ["units-kernel-sdk/std", "borsh/std"]
+
+[profile.release]
+opt-level = "z"  # Optimize for size
+lto = true       # Enable Link Time Optimization
+codegen-units = 1
+panic = "abort"  # Don't include unwinding code
+strip = true     # Strip symbols

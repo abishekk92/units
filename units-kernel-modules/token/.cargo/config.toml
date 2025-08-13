@@ -1,0 +1,14 @@
+[build]
+target = "riscv64imac-unknown-none-elf"
+
+[target.riscv64imac-unknown-none-elf]
+linker = "riscv64-elf-ld"
+rustflags = [
+    "-C", "link-arg=-Tlink.x",  # Use custom linker script
+    "-C", "relocation-model=static",
+    "-C", "target-feature=+m,+a,+c",
+]
+
+[unstable]
+build-std = ["core", "alloc"]
+build-std-features = ["compiler-builtins-mem"]

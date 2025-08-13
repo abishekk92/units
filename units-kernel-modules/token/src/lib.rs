@@ -1,11 +1,14 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
+use alloc::string::String;
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{Deserialize, Serialize};
-use units_core::UnitsObjectId;
+use units_kernel_sdk::{UnitsObjectId, OBJECT_ID_SIZE};
 
 pub const TOKEN_MODULE_NAME: &str = "token";
-pub const OBJECT_ID_SIZE: usize = 32;
 
-#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct TokenData {
     pub total_supply: u64,
     pub decimals: u8,
@@ -14,61 +17,21 @@ pub struct TokenData {
     pub is_frozen: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct BalanceData {
-    #[serde(serialize_with = "serialize_object_id", deserialize_with = "deserialize_object_id")]
-    #[borsh(serialize_with = "borsh_serialize_object_id", deserialize_with = "borsh_deserialize_object_id")]
     pub token_id: UnitsObjectId,
-    #[serde(serialize_with = "serialize_object_id", deserialize_with = "deserialize_object_id")]
-    #[borsh(serialize_with = "borsh_serialize_object_id", deserialize_with = "borsh_deserialize_object_id")]
     pub owner_id: UnitsObjectId,
     pub amount: u64,
 }
 
-// Serde serialization helpers
-fn serialize_object_id<S>(id: &UnitsObjectId, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_bytes(id.bytes())
-}
+// UnitsObjectId now implements BorshSerialize/Deserialize in the SDK
 
-fn deserialize_object_id<'de, D>(deserializer: D) -> Result<UnitsObjectId, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::de::{Error, Deserialize};
-    let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
-    if bytes.len() != 32 {
-        return Err(D::Error::custom("UnitsObjectId must be 32 bytes"));
-    }
-    let mut arr = [0u8; 32];
-    arr.copy_from_slice(&bytes);
-    Ok(UnitsObjectId::new(arr))
-}
-
-// Borsh serialization helpers
-fn borsh_serialize_object_id<W: std::io::Write>(
-    id: &UnitsObjectId,
-    writer: &mut W,
-) -> std::io::Result<()> {
-    writer.write_all(id.bytes())
-}
-
-fn borsh_deserialize_object_id<R: std::io::Read>(
-    reader: &mut R,
-) -> std::io::Result<UnitsObjectId> {
-    let mut bytes = [0u8; 32];
-    reader.read_exact(&mut bytes)?;
-    Ok(UnitsObjectId::new(bytes))
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct TransferParams {
     pub amount: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct TokenizeParams {
     pub initial_supply: u64,
     pub decimals: u8,
@@ -76,12 +39,12 @@ pub struct TokenizeParams {
     pub symbol: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct MintParams {
     pub amount: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct BurnParams {
     pub amount: u64,
 }
