@@ -3,10 +3,9 @@
 //! This module provides a working implementation of the consolidated storage
 //! architecture without depending on the complex legacy SQLite implementation.
 
-use crate::storage::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog, LockManager};
-// use crate::receipt_storage::ReceiptStorage;
+use units_storage::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, Mutex};
+use std::sync::RwLock;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
@@ -51,6 +50,7 @@ impl ObjectStorage for InMemoryObjectStorage {
         Ok(UnitsObjectProof {
             object_id: *object.id(),
             slot: 0, // Would be current slot
+            object_hash: [0u8; 32], // Would be actual object hash
             prev_proof_hash: None,
             transaction_hash: _transaction_hash,
             proof_data: vec![], // Would be actual proof data
@@ -69,6 +69,7 @@ impl ObjectStorage for InMemoryObjectStorage {
         Ok(UnitsObjectProof {
             object_id: *id,
             slot: 0,
+            object_hash: [0u8; 32], // Would be actual object hash
             prev_proof_hash: None,
             transaction_hash: _transaction_hash,
             proof_data: vec![],
@@ -202,48 +203,8 @@ impl ProofStorage for InMemoryProofStorage {
     }
 }
 
-/// Simple lock guard implementation (placeholder)
-pub struct SimpleLockGuard;
-
-unsafe impl Send for SimpleLockGuard {}
-unsafe impl Sync for SimpleLockGuard {}
-
-/// Simple in-memory lock manager
-pub struct InMemoryLockManager {
-    locks: Arc<Mutex<HashMap<UnitsObjectId, Arc<Mutex<()>>>>>,
-}
-
-impl InMemoryLockManager {
-    pub fn new() -> Self {
-        Self {
-            locks: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-}
-
-impl Default for InMemoryLockManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LockManager for InMemoryLockManager {
-    type Guard<'a> = SimpleLockGuard where Self: 'a;
-    
-    fn lock(&self, _id: &UnitsObjectId) -> Result<Self::Guard<'_>, StorageError> {
-        // Lock management is complex and would require proper synchronization
-        // For now, we'll just return an error indicating it's not implemented
-        Err(StorageError::from("Lock management not fully implemented"))
-    }
-    
-    fn try_lock(&self, _id: &UnitsObjectId) -> Result<Option<Self::Guard<'_>>, StorageError> {
-        Ok(None)
-    }
-    
-    fn lock_many(&self, _ids: &[UnitsObjectId]) -> Result<Vec<Self::Guard<'_>>, StorageError> {
-        Ok(Vec::new())
-    }
-}
+// Re-export from lock_manager module
+pub use crate::lock_manager::{InMemoryLockManager, SimpleLockGuard};
 
 /// No-op write-ahead log implementation
 pub struct NoOpWriteAheadLog;
@@ -271,19 +232,29 @@ impl WriteAheadLog for NoOpWriteAheadLog {
 }
 
 /// Complete consolidated storage implementation using composition
-pub type ConsolidatedUnitsStorage = crate::storage::UnitsStorage<
-    InMemoryObjectStorage,
-    InMemoryProofStorage,
-    NoOpWriteAheadLog,
->;
+pub struct ConsolidatedUnitsStorage {
+    inner: units_storage::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog>,
+}
 
 impl ConsolidatedUnitsStorage {
     pub fn create() -> Self {
-        crate::storage::UnitsStorage::new(
-            InMemoryObjectStorage::new(),
-            InMemoryProofStorage::new(),
-            Some(NoOpWriteAheadLog),
-        )
+        Self {
+            inner: units_storage::UnitsStorage::new(
+                InMemoryObjectStorage::new(),
+                InMemoryProofStorage::new(),
+                Some(NoOpWriteAheadLog),
+            )
+        }
+    }
+    
+    /// Get access to the inner storage
+    pub fn inner(&self) -> &units_storage::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
+        &self.inner
+    }
+    
+    /// Get mutable access to the inner storage
+    pub fn inner_mut(&mut self) -> &mut units_storage::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
+        &mut self.inner
     }
 }
 

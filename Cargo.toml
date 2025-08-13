@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "units-core",
-    "units-storage-impl",
+    "units-storage",
+    "units-storage-impl", 
     "units-runtime",
     "units-kernel-sdk",
     "units-kernel-modules/token",
@@ -35,6 +36,7 @@ borsh = { version = "1.5", features = ["derive"] }
 
 # Internal crates
 units-core = { path = "./units-core" }
+units-storage = { path = "./units-storage" }
 units-storage-impl = { path = "./units-storage-impl" }
 units-runtime = { path = "./units-runtime" }
 units-kernel-sdk = { path = "./units-kernel-sdk" }

@@ -1,0 +1,17 @@
+[package]
+name = "units-storage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+units-core = { workspace = true }
+
+# Minimal dependencies for trait definitions
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []

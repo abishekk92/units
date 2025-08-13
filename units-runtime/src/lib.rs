@@ -10,8 +10,9 @@ pub mod vm_executor;
 // Re-export the main types for convenience
 pub use runtime::Runtime;
 pub use units_core::transaction::{TransactionEffect, TransactionReceipt};
-// Re-export moved traits from units-storage-impl
-pub use units_storage_impl::storage_traits::{TransactionReceiptStorage, UnitsReceiptIterator};
+// Re-export storage traits and implementations
+pub use units_storage::ReceiptStorage;
+pub use units_storage_impl::InMemoryReceiptStorage as ReceiptStorageImpl;
 
 // Re-export types from units-core
 pub use units_core::locks::AccessIntent;

@@ -1,70 +1,33 @@
-// New consolidated storage architecture
-pub mod storage;
-pub mod receipt_storage;
-pub mod consolidated_storage;
+//! UNITS Storage Implementations
+//! 
+//! This crate provides concrete implementations of the storage traits defined in `units-storage`.
+//! 
+//! ## Available Implementations
+//! 
+//! - `InMemoryObjectStorage`: In-memory object storage for testing/development
+//! - `InMemoryProofStorage`: In-memory proof storage
+//! - `InMemoryReceiptStorage`: In-memory transaction receipt storage
+//! - `InMemoryLockManager`: Simple lock manager for development
+//! - `FileWriteAheadLog`: File-based write-ahead logging
+//! - `ConsolidatedUnitsStorage`: Complete storage solution using composition
 
-// Legacy modules (deprecated)
-#[deprecated(note = "Use consolidated storage traits instead")]
-pub mod deprecated {
-    pub mod storage_traits;
-    pub mod iterators;
-}
+pub mod consolidated_storage;
+pub mod receipt_storage;
 pub mod lock_manager;
 pub mod wal;
 
-// SQLite temporarily disabled due to legacy interface dependencies
-// #[cfg(feature = "sqlite")]
-// pub mod sqlite;
-
-// SQLite adapter temporarily disabled due to interface mismatch
-// #[cfg(feature = "sqlite")]
-// pub mod sqlite_adapter;
-
-//==============================================================================
-// NEW CONSOLIDATED EXPORTS
-//==============================================================================
-
-// Primary storage traits
-pub use storage::{
-    ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog, LockManager,
-    UnitsStorage,
+// Re-export the main storage traits for convenience
+pub use units_storage::{
+    ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog, 
+    LockManager, ReceiptStorage, UnitsStorage,
 };
 
-// Receipt storage
-pub use receipt_storage::{ReceiptStorage, InMemoryReceiptStorage};
-
-// Complete consolidated storage implementations
+// Export concrete implementations
 pub use consolidated_storage::{
-    InMemoryObjectStorage, InMemoryProofStorage, InMemoryLockManager,
-    NoOpWriteAheadLog, ConsolidatedUnitsStorage,
+    InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog, 
+    ConsolidatedUnitsStorage,
 };
 
-//==============================================================================
-// LEGACY EXPORTS (DEPRECATED)
-//==============================================================================
-
-#[deprecated(note = "Use ObjectStorage, ProofStorage, and WriteAheadLog instead")]
-pub use deprecated::storage_traits::{
-    UnitsStorage as LegacyUnitsStorage,
-    UnitsStorageProofEngine,
-    UnitsWriteAheadLog as LegacyWriteAheadLog,
-    TransactionReceiptStorage,
-};
-
-#[deprecated(note = "Use standard iterators instead")]
-pub use deprecated::storage_traits::{
-    UnitsProofIterator, UnitsReceiptIterator, UnitsStateProofIterator,
-    UnitsStorageIterator,
-};
-
-#[deprecated(note = "Use WriteAheadLog trait instead")]
-pub use wal::FileWriteAheadLog;
-
-// Legacy storage implementations (temporarily disabled)
-// #[cfg(feature = "sqlite")]
-// #[deprecated(note = "Use ConsolidatedUnitsStorage for new code")]
-// pub use sqlite::SqliteStorage;
-
-#[cfg(feature = "sqlite")]
-#[deprecated(note = "Use storage::LockManager trait instead")]
-pub use lock_manager::SqliteLockManager;
+pub use receipt_storage::InMemoryReceiptStorage;
+pub use lock_manager::{InMemoryLockManager, SimpleLockGuard};
+pub use wal::{FileWriteAheadLog, WALEntry, WALEntryType};

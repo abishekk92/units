@@ -1,13 +1,24 @@
-//! Simplified storage traits for UNITS
+//! UNITS Storage Traits
 //! 
-//! This module provides a cleaner, more focused storage interface that separates concerns
-//! and eliminates unnecessary complexity from the original storage_traits.rs
+//! This crate provides the core storage trait definitions for the UNITS (Universal
+//! Information Tokenization System) without any concrete implementations.
+//! 
+//! The traits follow a clean separation of concerns:
+//! - `ObjectStorage`: Core object persistence and retrieval
+//! - `HistoricalStorage`: Time-travel capabilities for objects  
+//! - `ProofStorage`: Cryptographic proof management
+//! - `WriteAheadLog`: Optional durability logging
+//! - `LockManager`: Object-level locking
+//! - `ReceiptStorage`: Transaction receipt management
+//! 
+//! Concrete implementations are provided by the `units-storage-impl` crate.
 
 use std::collections::HashMap;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
 use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof};
+use units_core::transaction::TransactionReceipt;
 
 //==============================================================================
 // CORE STORAGE TRAIT
@@ -16,7 +27,7 @@ use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof};
 /// Core storage interface for UNITS objects
 /// 
 /// This trait focuses solely on object persistence and retrieval.
-/// Transaction management has been moved to the Runtime.
+/// Transaction management is handled separately by the Runtime.
 pub trait ObjectStorage: Send + Sync {
     //--------------------------------------------------------------------------
     // BASIC OPERATIONS
@@ -177,12 +188,12 @@ pub trait ProofStorage: Send + Sync {
 }
 
 //==============================================================================
-// WRITE-AHEAD LOG TRAIT (OPTIONAL)
+// WRITE-AHEAD LOG TRAIT
 //==============================================================================
 
 /// Optional write-ahead log for durability
 /// 
-/// This is now a separate concern that can be composed with storage
+/// This is a separate concern that can be composed with storage
 pub trait WriteAheadLog: Send + Sync {
     /// Record an update before it's committed
     fn record_update(
@@ -202,6 +213,73 @@ pub trait WriteAheadLog: Send + Sync {
     fn replay<F>(&self, callback: F) -> Result<(), StorageError>
     where
         F: FnMut(&UnitsObject, &UnitsObjectProof) -> Result<(), StorageError>;
+}
+
+//==============================================================================
+// RECEIPT STORAGE TRAIT
+//==============================================================================
+
+/// Storage for transaction receipts
+/// 
+/// This consolidates transaction receipt storage into a single, focused trait
+pub trait ReceiptStorage: Send + Sync {
+    /// Store a transaction receipt
+    fn store_receipt(
+        &self,
+        receipt: &TransactionReceipt,
+    ) -> Result<(), StorageError>;
+    
+    /// Get a receipt by transaction hash
+    fn get_receipt(
+        &self,
+        tx_hash: &[u8; 32],
+    ) -> Result<Option<TransactionReceipt>, StorageError>;
+    
+    /// Get receipts for a specific slot
+    fn get_receipts_for_slot(
+        &self,
+        slot: SlotNumber,
+    ) -> Result<Vec<TransactionReceipt>, StorageError>;
+    
+    /// Get receipts within a slot range
+    fn get_receipts_range(
+        &self,
+        start_slot: SlotNumber,
+        end_slot: SlotNumber,
+    ) -> Result<Vec<TransactionReceipt>, StorageError>;
+    
+    /// Get receipts affecting a specific object
+    fn get_receipts_for_object(
+        &self,
+        object_id: &UnitsObjectId,
+        start_slot: Option<SlotNumber>,
+        end_slot: Option<SlotNumber>,
+    ) -> Result<Vec<TransactionReceipt>, StorageError>;
+    
+    /// Delete old receipts before a slot (for cleanup)
+    fn cleanup_receipts_before(
+        &self,
+        slot: SlotNumber,
+    ) -> Result<usize, StorageError>;
+}
+
+//==============================================================================
+// LOCK MANAGER TRAIT
+//==============================================================================
+
+/// Simplified lock manager using RAII pattern
+pub trait LockManager: Send + Sync {
+    /// Lock guard type
+    type Guard<'a>: Send + Sync where Self: 'a;
+    
+    /// Acquire a lock on an object
+    fn lock(&self, id: &UnitsObjectId) -> Result<Self::Guard<'_>, StorageError>;
+    
+    /// Try to acquire a lock without blocking
+    fn try_lock(&self, id: &UnitsObjectId) -> Result<Option<Self::Guard<'_>>, StorageError>;
+    
+    /// Acquire multiple locks atomically (ordered to prevent deadlock)
+    fn lock_many(&self, ids: &[UnitsObjectId]) -> Result<Vec<Self::Guard<'_>>, StorageError>;
 }
 
 //==============================================================================
@@ -247,23 +325,4 @@ where
         
         Ok(proof)
     }
-}
-
-//==============================================================================
-// LOCK MANAGER TRAIT (SIMPLIFIED)
-//==============================================================================
-
-/// Simplified lock manager using RAII pattern
-pub trait LockManager: Send + Sync {
-    /// Lock guard type
-    type Guard<'a>: Send + Sync where Self: 'a;
-    
-    /// Acquire a lock on an object
-    fn lock(&self, id: &UnitsObjectId) -> Result<Self::Guard<'_>, StorageError>;
-    
-    /// Try to acquire a lock without blocking
-    fn try_lock(&self, id: &UnitsObjectId) -> Result<Option<Self::Guard<'_>>, StorageError>;
-    
-    /// Acquire multiple locks atomically (ordered to prevent deadlock)
-    fn lock_many(&self, ids: &[UnitsObjectId]) -> Result<Vec<Self::Guard<'_>>, StorageError>;
 }

@@ -1,56 +1,13 @@
-//! Unified Receipt Storage
+//! Unified Receipt Storage Implementation
 //! 
-//! This module consolidates transaction receipt storage into a single, focused trait.
+//! This module provides concrete implementations of the ReceiptStorage trait.
 
 use std::collections::HashMap;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::transaction::TransactionReceipt;
 use units_core::proofs::SlotNumber;
-
-/// Unified trait for transaction receipt storage
-/// 
-/// This replaces the fragmented receipt storage in the legacy traits
-pub trait ReceiptStorage: Send + Sync {
-    /// Store a transaction receipt
-    fn store_receipt(
-        &self,
-        receipt: &TransactionReceipt,
-    ) -> Result<(), StorageError>;
-    
-    /// Get a receipt by transaction hash
-    fn get_receipt(
-        &self,
-        tx_hash: &[u8; 32],
-    ) -> Result<Option<TransactionReceipt>, StorageError>;
-    
-    /// Get receipts for a specific slot
-    fn get_receipts_for_slot(
-        &self,
-        slot: SlotNumber,
-    ) -> Result<Vec<TransactionReceipt>, StorageError>;
-    
-    /// Get receipts within a slot range
-    fn get_receipts_range(
-        &self,
-        start_slot: SlotNumber,
-        end_slot: SlotNumber,
-    ) -> Result<Vec<TransactionReceipt>, StorageError>;
-    
-    /// Get receipts affecting a specific object
-    fn get_receipts_for_object(
-        &self,
-        object_id: &UnitsObjectId,
-        start_slot: Option<SlotNumber>,
-        end_slot: Option<SlotNumber>,
-    ) -> Result<Vec<TransactionReceipt>, StorageError>;
-    
-    /// Delete old receipts before a slot (for cleanup)
-    fn cleanup_receipts_before(
-        &self,
-        slot: SlotNumber,
-    ) -> Result<usize, StorageError>;
-}
+use units_storage::ReceiptStorage;
 
 /// Simple in-memory receipt storage for testing
 pub struct InMemoryReceiptStorage {

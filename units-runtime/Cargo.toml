@@ -10,6 +10,7 @@ keywords = ["units", "tokenization", "runtime", "verification"]
 
 [dependencies]
 units-core.workspace = true
+units-storage.workspace = true
 units-storage-impl.workspace = true
 bincode.workspace = true
 serde.workspace = true

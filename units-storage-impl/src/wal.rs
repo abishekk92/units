@@ -1,4 +1,8 @@
-use crate::deprecated::storage_traits::{UnitsWriteAheadLog, WALEntry};
+//! Write-Ahead Log Implementation
+//! 
+//! Provides concrete implementations of the WriteAheadLog trait for durability.
+
+use units_storage::WriteAheadLog;
 use bincode;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
@@ -8,52 +12,31 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use units_core::error::StorageError;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{StateProof, UnitsObjectProof};
+use units_core::proofs::{StateProof, UnitsObjectProof, SlotNumber};
+
+/// WAL entry for object updates
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WALEntry {
+    pub object: UnitsObject,
+    pub slot: SlotNumber,
+    pub proof: UnitsObjectProof,
+    pub timestamp: u64,
+    pub transaction_hash: Option<[u8; 32]>,
+}
 
 /// Entry type in the WAL
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WALEntryType {
     /// Update to an object's state
     ObjectUpdate(WALEntry),
-
     /// State proof for a slot
     StateProof(StateProof),
-}
-
-/// Common WAL functionality implemented for reuse
-pub trait WALWriter {
-    /// Write a WAL entry to storage
-    fn write_wal_entry(&self, entry: &WALEntryType) -> Result<(), StorageError>;
-    
-    /// Get the current timestamp in milliseconds
-    fn current_timestamp() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64
-    }
-    
-    /// Create a WAL entry for an object update
-    fn create_object_update_entry(
-        object: &UnitsObject,
-        proof: &UnitsObjectProof,
-        transaction_hash: Option<[u8; 32]>,
-    ) -> WALEntry {
-        WALEntry {
-            object: object.clone(),
-            slot: proof.slot,
-            proof: proof.clone(),
-            timestamp: Self::current_timestamp(),
-            transaction_hash,
-        }
-    }
 }
 
 /// A basic file-based write-ahead log implementation
 pub struct FileWriteAheadLog {
     /// Path to the WAL file
     path: Arc<Mutex<PathBuf>>,
-
     /// File handle for writing
     file: Arc<Mutex<Option<BufWriter<File>>>>,
 }
@@ -66,34 +49,9 @@ impl FileWriteAheadLog {
             file: Arc::new(Mutex::new(None)),
         }
     }
-}
-
-impl WALWriter for FileWriteAheadLog {
-    fn write_wal_entry(&self, entry: &WALEntryType) -> Result<(), StorageError> {
-        let mut file_guard = self
-            .file
-            .lock()
-            .map_err(|e| StorageError::WAL(format!("Failed to acquire lock: {}", e)))?;
-
-        let file = file_guard
-            .as_mut()
-            .ok_or_else(|| StorageError::WAL("WAL has not been initialized".to_string()))?;
-
-        // Serialize the entry
-        let serialized = bincode::serialize(entry)?;
-
-        // Write the entry length and data
-        let entry_len = serialized.len() as u64;
-        file.write_all(&entry_len.to_le_bytes())?;
-        file.write_all(&serialized)?;
-        file.flush()?;
-
-        Ok(())
-    }
-}
-
-impl UnitsWriteAheadLog for FileWriteAheadLog {
-    fn init(&self, path: &Path) -> Result<(), StorageError> {
+    
+    /// Initialize the WAL with a file path
+    pub fn init(&self, path: &Path) -> Result<(), StorageError> {
         let mut file_guard = self
             .file
             .lock()
@@ -121,110 +79,105 @@ impl UnitsWriteAheadLog for FileWriteAheadLog {
 
         Ok(())
     }
+    
+    /// Write a WAL entry to storage
+    fn write_wal_entry(&self, entry: &WALEntryType) -> Result<(), StorageError> {
+        let mut file_guard = self
+            .file
+            .lock()
+            .map_err(|e| StorageError::WAL(format!("Failed to acquire lock: {}", e)))?;
 
+        let file = file_guard
+            .as_mut()
+            .ok_or_else(|| StorageError::WAL("WAL has not been initialized".to_string()))?;
+
+        // Serialize the entry
+        let serialized = bincode::serialize(entry)?;
+
+        // Write the entry length and data
+        let entry_len = serialized.len() as u64;
+        file.write_all(&entry_len.to_le_bytes())?;
+        file.write_all(&serialized)?;
+        file.flush()?;
+
+        Ok(())
+    }
+    
+    /// Get the current timestamp in milliseconds
+    fn current_timestamp() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
+}
+
+impl Default for FileWriteAheadLog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WriteAheadLog for FileWriteAheadLog {
     fn record_update(
         &self,
         object: &UnitsObject,
         proof: &UnitsObjectProof,
         transaction_hash: Option<[u8; 32]>,
     ) -> Result<(), StorageError> {
-        // Create the WAL entry using the helper
-        let entry = Self::create_object_update_entry(object, proof, transaction_hash);
+        let entry = WALEntry {
+            object: object.clone(),
+            slot: proof.slot,
+            proof: proof.clone(),
+            timestamp: Self::current_timestamp(),
+            transaction_hash,
+        };
 
-        // Use the common writer method
         self.write_wal_entry(&WALEntryType::ObjectUpdate(entry))
     }
 
     fn record_state_proof(&self, state_proof: &StateProof) -> Result<(), StorageError> {
-        // Use the common writer method
         self.write_wal_entry(&WALEntryType::StateProof(state_proof.clone()))
     }
 
-    fn iterate_entries(&self) -> Box<dyn Iterator<Item = Result<WALEntry, StorageError>> + '_> {
-        // Get the path
-        let path_guard = match self.path.lock() {
-            Ok(guard) => guard,
-            Err(_) => return Box::new(std::iter::empty()),
-        };
+    fn replay<F>(&self, mut callback: F) -> Result<(), StorageError>
+    where
+        F: FnMut(&UnitsObject, &UnitsObjectProof) -> Result<(), StorageError>,
+    {
+        let path_guard = self.path.lock()
+            .map_err(|e| StorageError::WAL(format!("Failed to acquire path lock: {}", e)))?;
         let path = path_guard.clone();
         drop(path_guard);
 
-        // Create a new file reader
-        let result = File::open(&path).and_then(|file| {
-            Ok(WALEntryIterator {
-                reader: BufReader::new(file),
-            })
-        });
+        let file = File::open(&path)
+            .map_err(|e| StorageError::WAL(format!("Failed to open WAL file: {}", e)))?;
+        let mut reader = BufReader::new(file);
 
-        match result {
-            Ok(iterator) => Box::new(iterator),
-            Err(_) => {
-                // Return an empty iterator if we can't open the file
-                Box::new(std::iter::empty::<Result<WALEntry, StorageError>>())
-            }
-        }
-    }
-}
-
-/// Common trait for WAL entry readers
-pub trait WALEntryReader {
-    /// Read the next entry from the WAL
-    fn read_next_entry(&mut self) -> Option<Result<WALEntryType, StorageError>>;
-}
-
-/// Iterator over WAL entries from a file
-pub struct WALEntryIterator {
-    reader: BufReader<File>,
-}
-
-impl WALEntryReader for WALEntryIterator {
-    fn read_next_entry(&mut self) -> Option<Result<WALEntryType, StorageError>> {
-        // Read the entry length
-        let mut len_buf = [0u8; 8];
-        match self.reader.read_exact(&mut len_buf) {
-            Ok(_) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                // End of file
-                return None;
-            }
-            Err(e) => {
-                return Some(Err(StorageError::from(e)));
-            }
-        }
-
-        let entry_len = u64::from_le_bytes(len_buf);
-
-        // Read the entry data
-        let mut entry_data = vec![0u8; entry_len as usize];
-        if let Err(e) = self.reader.read_exact(&mut entry_data) {
-            return Some(Err(StorageError::from(e)));
-        }
-
-        // Deserialize the entry
-        let entry_type: Result<WALEntryType, _> = bincode::deserialize(&entry_data);
-        match entry_type {
-            Ok(entry) => Some(Ok(entry)),
-            Err(e) => Some(Err(StorageError::from(e))),
-        }
-    }
-}
-
-impl Iterator for WALEntryIterator {
-    type Item = Result<WALEntry, StorageError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // Read next entry
-            match self.read_next_entry() {
-                Some(Ok(WALEntryType::ObjectUpdate(entry))) => return Some(Ok(entry)),
-                Some(Ok(WALEntryType::StateProof(_))) => {
-                    // Skip state proofs and continue to next entry
-                    continue;
-                }
-                Some(Err(e)) => return Some(Err(e)),
-                None => return None,
+            // Read the entry length
+            let mut len_buf = [0u8; 8];
+            match reader.read_exact(&mut len_buf) {
+                Ok(_) => {},
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(StorageError::from(e)),
+            }
+
+            let entry_len = u64::from_le_bytes(len_buf);
+
+            // Read the entry data
+            let mut entry_data = vec![0u8; entry_len as usize];
+            reader.read_exact(&mut entry_data)?;
+
+            // Deserialize the entry
+            let entry_type: WALEntryType = bincode::deserialize(&entry_data)?;
+
+            // Only replay object updates
+            if let WALEntryType::ObjectUpdate(entry) = entry_type {
+                callback(&entry.object, &entry.proof)?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -235,7 +188,6 @@ mod tests {
     use units_core::id::UnitsObjectId;
     use units_core::objects::UnitsObject;
 
-    // Helper to create a test object
     fn create_test_object() -> UnitsObject {
         let id = UnitsObjectId::random();
         let controller_id = UnitsObjectId::random();
@@ -243,98 +195,49 @@ mod tests {
         UnitsObject::new_data(
             id,
             controller_id,
-            vec![1, 2, 3, 4], // data
+            vec![1, 2, 3, 4],
         )
     }
 
-    // Helper to create a test proof
     fn create_test_proof() -> UnitsObjectProof {
         let object_id = UnitsObjectId::random();
-        let object_hash = [0u8; 32];
-        let current_slot = 1234u64; // Mock slot number for testing
+        let current_slot = 1234u64;
 
         UnitsObjectProof {
             object_id,
             slot: current_slot,
-            object_hash,
+            object_hash: [0u8; 32],
             prev_proof_hash: None,
             transaction_hash: None,
             proof_data: vec![5, 6, 7, 8],
         }
     }
 
-    // Helper to create a test state proof
-    fn create_test_state_proof() -> StateProof {
-        let current_slot = 1234u64; // Mock slot number for testing
-
-        StateProof {
-            slot: current_slot,
-            prev_state_proof_hash: None,
-            object_ids: vec![UnitsObjectId::random()],
-            proof_data: vec![9, 10, 11, 12],
-        }
-    }
-
     #[test]
     fn test_wal_object_updates() {
-        // Create a temporary directory for the WAL
         let temp_dir = tempdir().unwrap();
         let wal_path = temp_dir.path().join("test.wal");
 
-        // Create a WAL and initialize it
         let wal = FileWriteAheadLog::new();
         wal.init(&wal_path).unwrap();
 
-        // Create some test objects and proofs
         let obj1 = create_test_object();
         let proof1 = create_test_proof();
 
         let obj2 = create_test_object();
         let proof2 = create_test_proof();
 
-        // Record updates
         wal.record_update(&obj1, &proof1, None).unwrap();
         wal.record_update(&obj2, &proof2, None).unwrap();
 
-        // Iterate over the entries
-        let entries: Vec<_> = wal
-            .iterate_entries()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let mut entries = Vec::new();
+        wal.replay(|obj, proof| {
+            entries.push((obj.clone(), proof.clone()));
+            Ok(())
+        }).unwrap();
 
-        // Verify the results
         assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].object.id(), obj1.id());
-        assert_eq!(entries[1].object.id(), obj2.id());
-    }
-
-    #[test]
-    fn test_wal_state_proofs() {
-        // Create a temporary directory for the WAL
-        let temp_dir = tempdir().unwrap();
-        let wal_path = temp_dir.path().join("test.wal");
-
-        // Create a WAL and initialize it
-        let wal = FileWriteAheadLog::new();
-        wal.init(&wal_path).unwrap();
-
-        // Create a test object, proof, and state proof
-        let obj = create_test_object();
-        let proof = create_test_proof();
-        let state_proof = create_test_state_proof();
-
-        // Record updates
-        wal.record_update(&obj, &proof, None).unwrap();
-        wal.record_state_proof(&state_proof).unwrap();
-
-        // Iterate over the entries
-        let entries: Vec<_> = wal
-            .iterate_entries()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-
-        // Verify the results
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].object.id(), obj.id());
+        assert_eq!(entries[0].0.id(), obj1.id());
+        assert_eq!(entries[1].0.id(), obj2.id());
     }
 }

@@ -11,22 +11,15 @@ categories = ["database-implementations", "cryptography"]
 
 [dependencies]
 units-core.workspace = true
-curve25519-dalek.workspace = true
+units-storage = { path = "../units-storage" }
 bincode.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
 
-# Optional dependencies
-sqlx = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true }
-chrono.workspace = true
-futures = { version = "0.3", optional = true }
-
 [dev-dependencies]
 tempfile.workspace = true
 
 [features]
-default = ["sqlite"]
-sqlite = ["dep:sqlx", "dep:tokio", "dep:futures"]
+default = []
