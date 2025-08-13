@@ -1,7 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use token::*;
-use units_core::{Instruction, UnitsObject, UnitsObjectId, ObjectType};
-use units_runtime::ObjectEffect;
+use units_kernel_sdk::{Instruction, UnitsObject, UnitsObjectId, ObjectType, ObjectEffect, OBJECT_ID_SIZE};
 
 /// Helper to create a test execution context
 struct TestContext {

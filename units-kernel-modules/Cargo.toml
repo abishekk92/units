@@ -13,3 +13,4 @@ borsh = { version = "1.5", features = ["derive"] }
 thiserror = "2.0"
 anyhow = "1.0"
 units-core = { path = "../units-core" }
+units-kernel-sdk = { path = "../units-kernel-sdk" }

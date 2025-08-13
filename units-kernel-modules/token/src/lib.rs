@@ -102,17 +102,20 @@ impl TokenError {
     }
 }
 
-impl std::fmt::Display for TokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for TokenError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Token error {}: {}", self.code, self.message)
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for TokenError {}
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
+    use alloc::string::ToString;
+    use alloc::vec;
 
     #[test]
     fn test_token_data_serialization() {

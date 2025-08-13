@@ -1,12 +1,20 @@
 use std::collections::HashMap;
 use token::*;
-use units_core::{
-    constants::TOKEN_CONTROLLER_ID,
-    Instruction, UnitsObject, UnitsObjectId, ObjectType,
+use units_kernel_sdk::{
+    Instruction, UnitsObject, UnitsObjectId, ObjectType, ExecutionContext, ObjectEffect, OBJECT_ID_SIZE,
 };
-use units_runtime::{
-    ExecutionContext, ObjectEffect, MockRuntime, VMExecutor, VMExecutionError,
-};
+use units_runtime::{MockRuntime, VMExecutor, VMExecutionError};
+
+// Convert units_core::UnitsObjectId to units_kernel_sdk::UnitsObjectId  
+fn convert_id(id: units_core::UnitsObjectId) -> UnitsObjectId {
+    let bytes = id.bytes();
+    let mut array = [0u8; OBJECT_ID_SIZE];
+    array.copy_from_slice(bytes);
+    UnitsObjectId::new(array)
+}
+
+// Use kernel SDK ID for TOKEN_CONTROLLER_ID
+const TOKEN_CONTROLLER_ID: UnitsObjectId = UnitsObjectId::new([0u8; 32]);
 
 /// Test that simulates the actual runtime execution flow
 #[tokio::test]
@@ -15,11 +23,11 @@ async fn test_token_lifecycle_with_runtime() {
     let mut runtime = MockRuntime::new();
     
     // Generate test IDs
-    let token_id = UnitsObjectId::unique_id_for_tests();
-    let alice_balance_id = UnitsObjectId::unique_id_for_tests();
-    let bob_balance_id = UnitsObjectId::unique_id_for_tests();
-    let alice_owner_id = UnitsObjectId::unique_id_for_tests();
-    let bob_owner_id = UnitsObjectId::unique_id_for_tests();
+    let token_id = UnitsObjectId::new([1u8; OBJECT_ID_SIZE]);
+    let alice_balance_id = UnitsObjectId::new([2u8; OBJECT_ID_SIZE]);
+    let bob_balance_id = UnitsObjectId::new([3u8; OBJECT_ID_SIZE]);
+    let alice_owner_id = UnitsObjectId::new([4u8; OBJECT_ID_SIZE]);
+    let bob_owner_id = UnitsObjectId::new([5u8; OBJECT_ID_SIZE]);
     
     // Test 1: Tokenize - Create new token
     println!("=== Test 1: Tokenize ===");
@@ -31,21 +39,21 @@ async fn test_token_lifecycle_with_runtime() {
         symbol: "TEST".to_string(),
     };
     
-    let tokenize_instruction = Instruction::new(
-        TOKEN_CONTROLLER_ID,
-        "tokenize".to_string(),
-        vec![token_id, alice_balance_id],
-        borsh::to_vec(&tokenize_params).unwrap(),
-    );
+    let tokenize_instruction = Instruction {
+        controller_id: TOKEN_CONTROLLER_ID,
+        target_function: "tokenize".to_string(),
+        target_objects: vec![token_id, alice_balance_id],
+        params: borsh::to_vec(&tokenize_params).unwrap(),
+    };
     
     // Simulate runtime execution context
     let mut objects = HashMap::new();
-    let context = ExecutionContext::new(
-        tokenize_instruction,
-        objects.clone(),
-        1, // slot
-        1234567890, // timestamp
-    );
+    let context = ExecutionContext {
+        instruction: tokenize_instruction,
+        objects: objects.clone(),
+        slot: 1,
+        timestamp: 1234567890,
+    };
     
     // Simulate kernel module execution and verify results
     let effects = simulate_tokenize_execution(&context).unwrap();
@@ -95,19 +103,19 @@ async fn test_token_lifecycle_with_runtime() {
     // Transfer 100,000 tokens from Alice to Bob
     let transfer_params = TransferParams { amount: 100_000 };
     
-    let transfer_instruction = Instruction::new(
-        TOKEN_CONTROLLER_ID,
-        "transfer".to_string(),
-        vec![token_id, alice_balance_id, bob_balance_id],
-        borsh::to_vec(&transfer_params).unwrap(),
-    );
+    let transfer_instruction = Instruction {
+        controller_id: TOKEN_CONTROLLER_ID,
+        target_function: "transfer".to_string(),
+        target_objects: vec![token_id, alice_balance_id, bob_balance_id],
+        params: borsh::to_vec(&transfer_params).unwrap(),
+    };
     
-    let context = ExecutionContext::new(
-        transfer_instruction,
-        objects.clone(),
-        2, // slot
-        1234567900, // timestamp
-    );
+    let context = ExecutionContext {
+        instruction: transfer_instruction,
+        objects: objects.clone(),
+        slot: 2,
+        timestamp: 1234567900,
+    };
     
     let effects = simulate_transfer_execution(&context).unwrap();
     assert_eq!(effects.len(), 2);
@@ -136,19 +144,19 @@ async fn test_token_lifecycle_with_runtime() {
     
     let mint_params = MintParams { amount: 500_000 };
     
-    let mint_instruction = Instruction::new(
-        TOKEN_CONTROLLER_ID,
-        "mint".to_string(),
-        vec![token_id, alice_balance_id],
-        borsh::to_vec(&mint_params).unwrap(),
-    );
+    let mint_instruction = Instruction {
+        controller_id: TOKEN_CONTROLLER_ID,
+        target_function: "mint".to_string(),
+        target_objects: vec![token_id, alice_balance_id],
+        params: borsh::to_vec(&mint_params).unwrap(),
+    };
     
-    let context = ExecutionContext::new(
-        mint_instruction,
-        objects.clone(),
-        3, // slot
-        1234567910, // timestamp
-    );
+    let context = ExecutionContext {
+        instruction: mint_instruction,
+        objects: objects.clone(),
+        slot: 3,
+        timestamp: 1234567910,
+    };
     
     let effects = simulate_mint_execution(&context).unwrap();
     assert_eq!(effects.len(), 2);
@@ -175,19 +183,19 @@ async fn test_token_lifecycle_with_runtime() {
     // Test 4: Freeze/Unfreeze
     println!("\n=== Test 4: Freeze/Unfreeze ===");
     
-    let freeze_instruction = Instruction::new(
-        TOKEN_CONTROLLER_ID,
-        "freeze".to_string(),
-        vec![token_id],
-        vec![], // No parameters
-    );
+    let freeze_instruction = Instruction {
+        controller_id: TOKEN_CONTROLLER_ID,
+        target_function: "freeze".to_string(),
+        target_objects: vec![token_id],
+        params: vec![],
+    };
     
-    let context = ExecutionContext::new(
-        freeze_instruction,
-        objects.clone(),
-        4, // slot
-        1234567920, // timestamp
-    );
+    let context = ExecutionContext {
+        instruction: freeze_instruction,
+        objects: objects.clone(),
+        slot: 4,
+        timestamp: 1234567920,
+    };
     
     let effects = simulate_freeze_execution(&context).unwrap();
     assert_eq!(effects.len(), 1);
@@ -207,19 +215,19 @@ async fn test_token_lifecycle_with_runtime() {
     println!("✓ Token frozen successfully");
     
     // Test transfer while frozen (should fail)
-    let failed_transfer = Instruction::new(
-        TOKEN_CONTROLLER_ID,
-        "transfer".to_string(),
-        vec![token_id, alice_balance_id, bob_balance_id],
-        borsh::to_vec(&TransferParams { amount: 1000 }).unwrap(),
-    );
+    let failed_transfer = Instruction {
+        controller_id: TOKEN_CONTROLLER_ID,
+        target_function: "transfer".to_string(),
+        target_objects: vec![token_id, alice_balance_id, bob_balance_id],
+        params: borsh::to_vec(&TransferParams { amount: 1000 }).unwrap(),
+    };
     
-    let context = ExecutionContext::new(
-        failed_transfer,
-        objects.clone(),
-        5, // slot
-        1234567930, // timestamp
-    );
+    let context = ExecutionContext {
+        instruction: failed_transfer,
+        objects: objects.clone(),
+        slot: 5,
+        timestamp: 1234567930,
+    };
     
     let result = simulate_transfer_execution(&context);
     assert!(result.is_err());

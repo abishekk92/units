@@ -1,10 +1,17 @@
-#![no_std]
-#![no_main]
-#![feature(alloc_error_handler)]
+#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_main)]
+#![cfg_attr(not(feature = "std"), feature(alloc_error_handler))]
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
-use alloc::vec::Vec;
 
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+
+#[cfg(feature = "std")]
+use std::{vec, vec::Vec};
+
+#[cfg(not(feature = "std"))]
 mod allocator;
 
 use token::{
@@ -12,7 +19,7 @@ use token::{
 };
 use units_kernel_sdk::{
     ExecutionContext, ObjectEffect, KernelModule, KernelError,
-    read_context, write_effects, UnitsObject, UnitsObjectId, ObjectType,
+    read_context, write_effects, UnitsObject, ObjectType,
 };
 
 /// Token kernel module implementation
@@ -58,14 +65,14 @@ fn handle_tokenize(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelEr
         id: ctx.instruction.target_objects[0],
         controller_id: ctx.instruction.controller_id,
         object_type: ObjectType::Data,
-        data: borsh::to_vec(&token_data)?,
+        data: borsh::to_vec(&token_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     let balance_object = UnitsObject {
         id: ctx.instruction.target_objects[1],
         controller_id: ctx.instruction.controller_id,
         object_type: ObjectType::Data,
-        data: borsh::to_vec(&balance_data)?,
+        data: borsh::to_vec(&balance_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     Ok(vec![
@@ -117,14 +124,14 @@ fn handle_transfer(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelEr
         id: from_balance.id,
         controller_id: from_balance.controller_id,
         object_type: from_balance.object_type.clone(),
-        data: borsh::to_vec(&from_data)?,
+        data: borsh::to_vec(&from_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     let updated_to = UnitsObject {
         id: to_balance.id,
         controller_id: to_balance.controller_id,
         object_type: to_balance.object_type.clone(),
-        data: borsh::to_vec(&to_data)?,
+        data: borsh::to_vec(&to_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     Ok(vec![
@@ -161,14 +168,14 @@ fn handle_mint(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError>
         id: token.id,
         controller_id: token.controller_id,
         object_type: token.object_type.clone(),
-        data: borsh::to_vec(&token_data)?,
+        data: borsh::to_vec(&token_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     let updated_balance = UnitsObject {
         id: balance.id,
         controller_id: balance.controller_id,
         object_type: balance.object_type.clone(),
-        data: borsh::to_vec(&balance_data)?,
+        data: borsh::to_vec(&balance_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     Ok(vec![
@@ -210,14 +217,14 @@ fn handle_burn(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError>
         id: token.id,
         controller_id: token.controller_id,
         object_type: token.object_type.clone(),
-        data: borsh::to_vec(&token_data)?,
+        data: borsh::to_vec(&token_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     let updated_balance = UnitsObject {
         id: balance.id,
         controller_id: balance.controller_id,
         object_type: balance.object_type.clone(),
-        data: borsh::to_vec(&balance_data)?,
+        data: borsh::to_vec(&balance_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     Ok(vec![
@@ -243,7 +250,7 @@ fn handle_freeze(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelErro
         id: token.id,
         controller_id: token.controller_id,
         object_type: token.object_type.clone(),
-        data: borsh::to_vec(&token_data)?,
+        data: borsh::to_vec(&token_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     Ok(vec![ObjectEffect::modification(token.clone(), updated_token)])
@@ -266,13 +273,14 @@ fn handle_unfreeze(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelEr
         id: token.id,
         controller_id: token.controller_id,
         object_type: token.object_type.clone(),
-        data: borsh::to_vec(&token_data)?,
+        data: borsh::to_vec(&token_data).map_err(|_| KernelError::InvalidData)?,
     };
     
     Ok(vec![ObjectEffect::modification(token.clone(), updated_token)])
 }
 
-/// Entry point for the kernel module
+/// Entry point for the kernel module  
+#[cfg(not(feature = "std"))]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     // Read execution context from standard input
@@ -294,7 +302,14 @@ pub extern "C" fn _start() -> ! {
     }
 }
 
+/// Entry point for std builds (testing)
+#[cfg(feature = "std")]
+fn main() {
+    println!("Token kernel module - std build for testing");
+}
+
 /// Panic handler for no_std environment
+#[cfg(not(feature = "std"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     units_kernel_sdk::exit(KernelError::Panic as i32)

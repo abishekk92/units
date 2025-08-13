@@ -9,14 +9,18 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use alloc::string::String;
-use alloc::collections::HashMap;
 use borsh::{BorshDeserialize, BorshSerialize};
+
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as HashMap;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 
 /// Size of object IDs in bytes
 pub const OBJECT_ID_SIZE: usize = 32;
 
 /// Units object ID type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, BorshSerialize, BorshDeserialize)]
 pub struct UnitsObjectId([u8; OBJECT_ID_SIZE]);
 
 impl UnitsObjectId {
@@ -197,7 +201,7 @@ pub fn read_context() -> Result<ExecutionContext, KernelError> {
 /// Write effects to stdout
 pub fn write_effects(effects: &[ObjectEffect]) -> Result<(), KernelError> {
     let data = borsh::to_vec(effects).map_err(|_| KernelError::InvalidData)?;
-    let size = (data.len() as u32).to_le_bytes();
+    let _size = (data.len() as u32).to_le_bytes();
     
     #[cfg(not(feature = "std"))]
     {
