@@ -4,8 +4,25 @@
 //! 
 //! This SDK provides the necessary types and utilities for building
 //! kernel modules that run in the UNITS RISC-V VM environment.
+//!
+//! # Memory Management
+//! 
+//! The SDK provides a safe allocator abstraction for kernel modules.
+//! Use the `use_default_allocator!()` macro in your kernel module's main.rs
+//! to avoid writing unsafe allocation code:
+//! 
+//! ```rust
+//! #![no_std]
+//! #![no_main]
+//! 
+//! use units_kernel_sdk::use_default_allocator;
+//! 
+//! use_default_allocator!();
+//! ```
 
 extern crate alloc;
+
+pub mod allocator;
 
 use alloc::vec::Vec;
 use alloc::string::String;

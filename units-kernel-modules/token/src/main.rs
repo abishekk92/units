@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), no_main)]
-#![cfg_attr(not(feature = "std"), feature(alloc_error_handler))]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -12,7 +11,7 @@ use alloc::{vec, vec::Vec};
 use std::{vec, vec::Vec};
 
 #[cfg(not(feature = "std"))]
-mod allocator;
+units_kernel_sdk::use_default_allocator!();
 
 use token::{
     TokenData, BalanceData, TokenizeParams, TransferParams, MintParams, BurnParams,
