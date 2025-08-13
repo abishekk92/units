@@ -1,0 +1,31 @@
+[package]
+name = "token"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+units-core = { workspace = true }
+serde = { workspace = true }
+borsh = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+units-runtime = { path = "../../units-runtime" }
+
+[build-dependencies]
+cc = "1.0"
+
+[lib]
+name = "token"
+crate-type = ["lib", "staticlib"]
+
+[[bin]]
+name = "token-test"
+path = "src/test_harness.rs"
+required-features = ["test-harness"]
+
+[features]
+default = []
+test-harness = []
