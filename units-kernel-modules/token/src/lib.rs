@@ -50,23 +50,23 @@ pub struct BurnParams {
 }
 
 pub enum TokenFunction {
-    Tokenize,
-    Transfer,
-    Mint,
-    Burn,
-    Freeze,
-    Unfreeze,
+    CreateToken,
+    TransferToken,
+    MintToken,
+    BurnToken,
+    FreezeToken,
+    UnfreezeToken,
 }
 
 impl TokenFunction {
     pub fn as_str(&self) -> &'static str {
         match self {
-            TokenFunction::Tokenize => "tokenize",
-            TokenFunction::Transfer => "transfer",
-            TokenFunction::Mint => "mint",
-            TokenFunction::Burn => "burn",
-            TokenFunction::Freeze => "freeze",
-            TokenFunction::Unfreeze => "unfreeze",
+            TokenFunction::CreateToken => "create_token",
+            TokenFunction::TransferToken => "transfer_token",
+            TokenFunction::MintToken => "mint_token",
+            TokenFunction::BurnToken => "burn_token",
+            TokenFunction::FreezeToken => "freeze_token",
+            TokenFunction::UnfreezeToken => "unfreeze_token",
         }
     }
 }
@@ -183,12 +183,12 @@ mod tests {
 
     #[test]
     fn test_token_functions() {
-        assert_eq!(TokenFunction::Tokenize.as_str(), "tokenize");
-        assert_eq!(TokenFunction::Transfer.as_str(), "transfer");
-        assert_eq!(TokenFunction::Mint.as_str(), "mint");
-        assert_eq!(TokenFunction::Burn.as_str(), "burn");
-        assert_eq!(TokenFunction::Freeze.as_str(), "freeze");
-        assert_eq!(TokenFunction::Unfreeze.as_str(), "unfreeze");
+        assert_eq!(TokenFunction::CreateToken.as_str(), "create_token");
+        assert_eq!(TokenFunction::TransferToken.as_str(), "transfer_token");
+        assert_eq!(TokenFunction::MintToken.as_str(), "mint_token");
+        assert_eq!(TokenFunction::BurnToken.as_str(), "burn_token");
+        assert_eq!(TokenFunction::FreezeToken.as_str(), "freeze_token");
+        assert_eq!(TokenFunction::UnfreezeToken.as_str(), "unfreeze_token");
     }
 
     #[test]

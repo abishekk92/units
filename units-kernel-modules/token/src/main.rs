@@ -28,18 +28,18 @@ struct TokenModule;
 impl KernelModule for TokenModule {
     fn execute(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
         match ctx.instruction.target_function.as_str() {
-            "tokenize" => handle_tokenize(ctx),
-            "transfer" => handle_transfer(ctx),
-            "mint" => handle_mint(ctx),
-            "burn" => handle_burn(ctx),
-            "freeze" => handle_freeze(ctx),
-            "unfreeze" => handle_unfreeze(ctx),
+            "create_token" => handle_create_token(ctx),
+            "transfer_token" => handle_transfer_token(ctx),
+            "mint_token" => handle_mint_token(ctx),
+            "burn_token" => handle_burn_token(ctx),
+            "freeze_token" => handle_freeze_token(ctx),
+            "unfreeze_token" => handle_unfreeze_token(ctx),
             _ => Err(KernelError::InvalidFunction),
         }
     }
 }
 
-fn handle_tokenize(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+fn handle_create_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
     let params: TokenizeParams = borsh::from_slice(&ctx.instruction.params)
         .map_err(|_| KernelError::InvalidParams)?;
     
@@ -81,7 +81,7 @@ fn handle_tokenize(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelEr
     ])
 }
 
-fn handle_transfer(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+fn handle_transfer_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
     let params: TransferParams = borsh::from_slice(&ctx.instruction.params)
         .map_err(|_| KernelError::InvalidParams)?;
     
@@ -140,7 +140,7 @@ fn handle_transfer(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelEr
     ])
 }
 
-fn handle_mint(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+fn handle_mint_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
     let params: MintParams = borsh::from_slice(&ctx.instruction.params)
         .map_err(|_| KernelError::InvalidParams)?;
     
@@ -184,7 +184,7 @@ fn handle_mint(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError>
     ])
 }
 
-fn handle_burn(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+fn handle_burn_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
     let params: BurnParams = borsh::from_slice(&ctx.instruction.params)
         .map_err(|_| KernelError::InvalidParams)?;
     
@@ -233,7 +233,7 @@ fn handle_burn(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError>
     ])
 }
 
-fn handle_freeze(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+fn handle_freeze_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
     if ctx.instruction.target_objects.is_empty() {
         return Err(KernelError::InvalidParams);
     }
@@ -256,7 +256,7 @@ fn handle_freeze(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelErro
     Ok(vec![ObjectEffect::modification(token.clone(), updated_token)])
 }
 
-fn handle_unfreeze(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+fn handle_unfreeze_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
     if ctx.instruction.target_objects.is_empty() {
         return Err(KernelError::InvalidParams);
     }

@@ -53,12 +53,12 @@ fn simulate_kernel_execution(
     // and deserialize the results. For testing, we simulate the logic.
     
     match instruction.target_function.as_str() {
-        "tokenize" => simulate_tokenize(instruction, context),
-        "transfer" => simulate_transfer(instruction, context),
-        "mint" => simulate_mint(instruction, context),
-        "burn" => simulate_burn(instruction, context),
-        "freeze" => simulate_freeze(instruction, context),
-        "unfreeze" => simulate_unfreeze(instruction, context),
+        "create_token" => simulate_tokenize(instruction, context),
+        "transfer_token" => simulate_transfer(instruction, context),
+        "mint_token" => simulate_mint(instruction, context),
+        "burn_token" => simulate_burn(instruction, context),
+        "freeze_token" => simulate_freeze(instruction, context),
+        "unfreeze_token" => simulate_unfreeze(instruction, context),
         _ => Err(TokenError::from_code(TokenError::INVALID_FUNCTION)),
     }
 }
@@ -342,7 +342,7 @@ fn test_complete_token_lifecycle() {
     let bob_id = UnitsObjectId::new([7; OBJECT_ID_SIZE]);
     let charlie_id = UnitsObjectId::new([8; OBJECT_ID_SIZE]);
     
-    // Step 1: Tokenize - Create a new token with initial supply to Alice
+    // Step 1: Create Token - Create a new token with initial supply to Alice
     println!("Step 1: Creating token...");
     let tokenize_params = TokenizeParams {
         initial_supply: 1_000_000,
@@ -353,7 +353,7 @@ fn test_complete_token_lifecycle() {
     
     let tokenize_instruction = Instruction {
         controller_id,
-        target_function: "tokenize".to_string(),
+        target_function: "create_token".to_string(),
         target_objects: vec![token_id, alice_balance_id],
         params: borsh::to_vec(&tokenize_params).unwrap(),
     };
@@ -393,7 +393,7 @@ fn test_complete_token_lifecycle() {
     
     let transfer_instruction = Instruction {
         controller_id,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id, alice_balance_id, bob_balance_id],
         params: borsh::to_vec(&transfer_params).unwrap(),
     };
@@ -417,7 +417,7 @@ fn test_complete_token_lifecycle() {
     
     let mint_instruction = Instruction {
         controller_id,
-        target_function: "mint".to_string(),
+        target_function: "mint_token".to_string(),
         target_objects: vec![token_id, alice_balance_id],
         params: borsh::to_vec(&mint_params).unwrap(),
     };
@@ -439,7 +439,7 @@ fn test_complete_token_lifecycle() {
     println!("Step 5: Freezing token...");
     let freeze_instruction = Instruction {
         controller_id,
-        target_function: "freeze".to_string(),
+        target_function: "freeze_token".to_string(),
         target_objects: vec![token_id],
         params: vec![],
     };
@@ -452,7 +452,7 @@ fn test_complete_token_lifecycle() {
     println!("Step 6: Attempting transfer while frozen...");
     let transfer_instruction = Instruction {
         controller_id,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id, alice_balance_id, bob_balance_id],
         params: borsh::to_vec(&TransferParams { amount: 50_000 }).unwrap(),
     };
@@ -465,7 +465,7 @@ fn test_complete_token_lifecycle() {
     println!("Step 7: Unfreezing token...");
     let unfreeze_instruction = Instruction {
         controller_id,
-        target_function: "unfreeze".to_string(),
+        target_function: "unfreeze_token".to_string(),
         target_objects: vec![token_id],
         params: vec![],
     };
@@ -480,7 +480,7 @@ fn test_complete_token_lifecycle() {
     
     let burn_instruction = Instruction {
         controller_id,
-        target_function: "burn".to_string(),
+        target_function: "burn_token".to_string(),
         target_objects: vec![token_id, bob_balance_id],
         params: borsh::to_vec(&burn_params).unwrap(),
     };
@@ -552,7 +552,7 @@ fn test_error_cases() {
     println!("Test 1: Insufficient balance...");
     let transfer_instruction = Instruction {
         controller_id,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id, alice_balance_id, bob_balance_id],
         params: borsh::to_vec(&TransferParams { amount: 200 }).unwrap(), // More than Alice has
     };
@@ -565,7 +565,7 @@ fn test_error_cases() {
     println!("Test 2: Overflow on transfer...");
     let transfer_instruction = Instruction {
         controller_id,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id, alice_balance_id, bob_balance_id],
         params: borsh::to_vec(&TransferParams { amount: 100 }).unwrap(),
     };
@@ -591,7 +591,7 @@ fn test_error_cases() {
     println!("Test 4: Missing objects...");
     let transfer_instruction = Instruction {
         controller_id,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id], // Missing balance objects
         params: borsh::to_vec(&TransferParams { amount: 10 }).unwrap(),
     };

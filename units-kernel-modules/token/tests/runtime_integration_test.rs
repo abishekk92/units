@@ -41,7 +41,7 @@ async fn test_token_lifecycle_with_runtime() {
     
     let tokenize_instruction = Instruction {
         controller_id: TOKEN_CONTROLLER_ID,
-        target_function: "tokenize".to_string(),
+        target_function: "create_token".to_string(),
         target_objects: vec![token_id, alice_balance_id],
         params: borsh::to_vec(&tokenize_params).unwrap(),
     };
@@ -105,7 +105,7 @@ async fn test_token_lifecycle_with_runtime() {
     
     let transfer_instruction = Instruction {
         controller_id: TOKEN_CONTROLLER_ID,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id, alice_balance_id, bob_balance_id],
         params: borsh::to_vec(&transfer_params).unwrap(),
     };
@@ -146,7 +146,7 @@ async fn test_token_lifecycle_with_runtime() {
     
     let mint_instruction = Instruction {
         controller_id: TOKEN_CONTROLLER_ID,
-        target_function: "mint".to_string(),
+        target_function: "mint_token".to_string(),
         target_objects: vec![token_id, alice_balance_id],
         params: borsh::to_vec(&mint_params).unwrap(),
     };
@@ -185,7 +185,7 @@ async fn test_token_lifecycle_with_runtime() {
     
     let freeze_instruction = Instruction {
         controller_id: TOKEN_CONTROLLER_ID,
-        target_function: "freeze".to_string(),
+        target_function: "freeze_token".to_string(),
         target_objects: vec![token_id],
         params: vec![],
     };
@@ -217,7 +217,7 @@ async fn test_token_lifecycle_with_runtime() {
     // Test transfer while frozen (should fail)
     let failed_transfer = Instruction {
         controller_id: TOKEN_CONTROLLER_ID,
-        target_function: "transfer".to_string(),
+        target_function: "transfer_token".to_string(),
         target_objects: vec![token_id, alice_balance_id, bob_balance_id],
         params: borsh::to_vec(&TransferParams { amount: 1000 }).unwrap(),
     };
