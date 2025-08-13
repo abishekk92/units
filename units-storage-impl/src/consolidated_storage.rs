@@ -1,7 +1,7 @@
 //! Consolidated Storage Implementation
 //! 
 //! This module provides a working implementation of the consolidated storage
-//! architecture without depending on the complex legacy SQLite implementation.
+//! architecture with in-memory implementations for development and testing.
 
 use units_storage::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog};
 use std::collections::HashMap;

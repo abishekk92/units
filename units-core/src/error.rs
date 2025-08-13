@@ -130,15 +130,6 @@ impl From<bincode::Error> for StorageError {
 }
 
 
-#[cfg(feature = "sqlite")]
-impl From<sqlx::Error> for StorageError {
-    fn from(err: sqlx::Error) -> Self {
-        match err {
-            sqlx::Error::RowNotFound => StorageError::NotFound("Row not found".to_string()),
-            _ => StorageError::Database(err.to_string()),
-        }
-    }
-}
 
 impl From<String> for StorageError {
     fn from(err: String) -> Self {

@@ -22,15 +22,18 @@ The project is organized as a Cargo workspace with the following crates:
   - Cryptographic proof systems (Merkle Proofs, State Proofs)
   - Basic error types
 
-- **units-storage-impl**: **Consolidated Storage Architecture** 
-  - 🆕 **Modern trait-based design** with clear separation of concerns
-  - `ObjectStorage` - Core object persistence
-  - `ProofStorage` - Cryptographic proof management  
-  - `ReceiptStorage` - Transaction receipt tracking
-  - `WriteAheadLog` - Optional durability logging
-  - `LockManager` - Concurrency control
-  - In-memory implementations for testing/development
-  - ⚠️  Legacy SQLite backend (deprecated in favor of new architecture)
+- **units-storage**: Storage trait definitions
+  - Clean trait-based design with separation of concerns
+  - `ObjectStorage` - Core object persistence interface
+  - `ProofStorage` - Cryptographic proof management interface  
+  - `ReceiptStorage` - Transaction receipt tracking interface
+  - `WriteAheadLog` - Optional durability logging interface
+  - `LockManager` - Concurrency control interface
+
+- **units-storage-impl**: Concrete storage implementations
+  - In-memory implementations for development and testing
+  - File-based write-ahead logging
+  - Composable storage architecture
 
 - **units-runtime**: Runtime and VM execution
   - VM execution environment for kernel modules
@@ -58,17 +61,16 @@ The project is organized as a Cargo workspace with the following crates:
 The new storage architecture follows **composition over inheritance**:
 
 ```rust
-// Modern approach - compose storage capabilities
-use units_storage_impl::{
-    ObjectStorage, ProofStorage, WriteAheadLog, ReceiptStorage,
-    ConsolidatedUnitsStorage
-};
+// Import trait definitions
+use units_storage::{ObjectStorage, ProofStorage, WriteAheadLog, ReceiptStorage};
+// Import concrete implementations
+use units_storage_impl::ConsolidatedUnitsStorage;
 
-// Create storage with exactly the capabilities you need
-let storage = ConsolidatedUnitsStorage::new();
+// Create storage with all capabilities
+let storage = ConsolidatedUnitsStorage::create();
 
-// Or compose your own
-let custom_storage = UnitsStorage::new(
+// Or compose your own using the traits
+let custom_storage = units_storage::UnitsStorage::new(
     MyObjectStorage::new(),
     MyProofStorage::new(), 
     Some(MyWriteAheadLog::new())
@@ -136,7 +138,7 @@ use units_storage_impl::ConsolidatedUnitsStorage;
 use units_core::{UnitsObjectId, UnitsObject};
 
 // Create consolidated storage instance
-let storage = ConsolidatedUnitsStorage::new();
+let storage = ConsolidatedUnitsStorage::create();
 
 // Create and store an object  
 let id = UnitsObjectId::new([1u8; 32]);
@@ -144,11 +146,11 @@ let controller = UnitsObjectId::new([2u8; 32]);
 let object = UnitsObject::new(id, controller, vec![1, 2, 3]);
 
 // Store with proof generation
-let proof = storage.objects.set(&object, None)?;
-storage.proofs.store_object_proof(&proof)?;
+let proof = storage.inner().objects.set(&object, None)?;
+storage.inner().proofs.store_object_proof(&proof)?;
 
 // Retrieve object
-if let Some(retrieved) = storage.objects.get(&id)? {
+if let Some(retrieved) = storage.inner().objects.get(&id)? {
     println!("Found object: {:?}", retrieved);
 }
 ```
@@ -172,16 +174,19 @@ runtime.apply_effects(&effects)?;
 ### Receipt Storage
 
 ```rust
-use units_storage_impl::ReceiptStorage;
+use units_storage::ReceiptStorage;
+use units_storage_impl::InMemoryReceiptStorage;
+
+let receipts = InMemoryReceiptStorage::new();
 
 // Store transaction receipt
-storage.receipts.store_receipt(&receipt)?;
+receipts.store_receipt(&receipt)?;
 
 // Query receipts by slot
-let slot_receipts = storage.receipts.get_receipts_for_slot(12345)?;
+let slot_receipts = receipts.get_receipts_for_slot(12345)?;
 
 // Query receipts affecting specific object
-let object_receipts = storage.receipts.get_receipts_for_object(
+let object_receipts = receipts.get_receipts_for_object(
     &object_id, Some(start_slot), Some(end_slot)
 )?;
 ```
@@ -189,41 +194,28 @@ let object_receipts = storage.receipts.get_receipts_for_object(
 ### Historical Queries
 
 ```rust
-use units_storage_impl::HistoricalStorage;
+use units_storage::HistoricalStorage;
 
-// Get object at specific slot
-let historical_object = storage.objects.get_at_slot(&id, slot_num)?;
+// Get object at specific slot (if storage supports historical queries)
+let historical_object = storage.inner().objects.get_at_slot(&id, slot_num)?;
 
 // Get object history over time range
-let history = storage.objects.get_history(&id, start_slot, end_slot)?;
+let history = storage.inner().objects.get_history(&id, start_slot, end_slot)?;
 
 // Get proof history
-let proof_history = storage.proofs.get_proof_history(
+let proof_history = storage.inner().proofs.get_proof_history(
     &id, Some(start_slot), Some(end_slot)
 )?;
 ```
 
-## Migration from Legacy Code
-
-The codebase maintains **backward compatibility** while encouraging migration:
-
-```rust
-// ⚠️ Legacy (deprecated)
-use units_storage_impl::LegacyUnitsStorage;
-
-// ✅ Modern (recommended)  
-use units_storage_impl::{ObjectStorage, ProofStorage, ConsolidatedUnitsStorage};
-```
-
-All legacy traits are marked `#[deprecated]` with migration guidance.
 
 ## Key Improvements
 
 ### Storage Architecture
-- **Trait consolidation**: From 8 overlapping traits to 5 focused traits
+- **Clean separation**: Traits in `units-storage`, implementations in `units-storage-impl`
 - **Composition pattern**: Flexible capability combinations
 - **Standard iterators**: No complex async adapters required
-- **Clear responsibilities**: Object storage ≠ proof storage ≠ WAL
+- **Clear responsibilities**: Each trait has a single, focused purpose
 
 ### Kernel Module Framework  
 - **Zero unsafe code**: `use_default_allocator!()` macro handles everything
@@ -233,8 +225,8 @@ All legacy traits are marked `#[deprecated]` with migration guidance.
 
 ### Developer Experience
 - **Focused traits**: Single responsibility interfaces
-- **Better documentation**: Clear examples and migration paths  
-- **Reduced complexity**: 55% fewer lines in storage layer
+- **Better documentation**: Clear examples and usage patterns  
+- **Simplified architecture**: Clean separation of concerns
 - **Modern patterns**: Composition over inheritance throughout
 
 ## Building

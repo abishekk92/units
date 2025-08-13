@@ -44,7 +44,10 @@
 
 ## Code Structure Guidelines
 
-- Common types like lock, transaction, and scheduling primitives have been consolidated into units-core
-- When working with storage/transaction types, prefer using types directly from units-core
-- Older code still uses units-transaction and units-scheduler, but should gradually migrate to using units-core directly
-- units-transaction and units-scheduler are effectively deprecated and maintained for backward compatibility only
+- **units-core**: Contains all fundamental types (locks, transactions, scheduling primitives)
+- **units-storage**: Contains storage trait definitions only
+- **units-storage-impl**: Contains concrete implementations of storage traits
+- **units-runtime**: Runtime and VM execution environment
+- **units-kernel-sdk**: Framework for building kernel modules
+- When working with storage, import traits from units-storage and implementations from units-storage-impl
+- All core types (UnitsObjectId, UnitsObject, etc.) come from units-core

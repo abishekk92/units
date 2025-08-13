@@ -20,9 +20,5 @@ anyhow.workspace = true
 log.workspace = true
 hex.workspace = true
 
-# Optional dependencies
-sqlx = { workspace = true, optional = true }
-
 [features]
 default = []
-sqlite = ["dep:sqlx"]
