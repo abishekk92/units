@@ -1,246 +1,232 @@
-# UNITS (Universal Information Tokenization System)
+# UNITS Storage - Universal Information Tokenization System
 
-A modular storage and runtime system for the Universal Information Tokenization System (UNITS).
+A modular storage and runtime system for the Universal Information Tokenization System (UNITS), a core component of Finternet.
 
 ## Overview
 
-UNITS is a component of Finternet that provides a way to tokenize and manage objects. This workspace implements the full UNITS stack, organized into logical crates that work together.
+UNITS implements a unified object architecture where **everything is an object** with immutable controllers that define mutation rules through sandboxed execution. All entities (data, code, accounts, tokens) are represented as `UnitsObject`s with cryptographically verifiable state transitions.
 
-**The core principle**: Objects can only be mutated by their controller through sandboxed execution, with all changes cryptographically verified and auditable.
+**Core Architecture**: Objects → Controllers → Sandboxed VMs → Verified Effects → Storage → Proofs
 
 ## Workspace Structure
 
-The project is organized as a Cargo workspace with the following crates:
-
 ### Core Components
 
-- **units-core**: Core data structures and fundamental types
-  - `UnitsObjectId` - 32-byte object identifiers  
-  - `UnitsObject` - Immutable objects with controller-based access control
-  - Transaction types (`TransactionEffect`, `ObjectEffect`)
-  - Locking primitives and scheduling
-  - Cryptographic proof systems (Merkle Proofs, State Proofs)
-  - Basic error types
+- **units-core** - Fundamental types and data structures
+  - `UnitsObjectId` - 32-byte cryptographic object identifiers  
+  - `UnitsObject` - Unified object model with controller-based access control
+  - `TransactionEffect`/`ObjectEffect` - State transition tracking
+  - System constants (`SYSTEM_LOADER_ID`, `TOKEN_CONTROLLER_ID`)
+  - Locking, scheduling, and proof generation primitives
 
-- **units-storage**: Storage trait definitions
-  - Clean trait-based design with separation of concerns
+- **units-storage** - Storage trait definitions (composition-based architecture)
   - `ObjectStorage` - Core object persistence interface
-  - `ProofStorage` - Cryptographic proof management interface  
-  - `ReceiptStorage` - Transaction receipt tracking interface
-  - `WriteAheadLog` - Optional durability logging interface
-  - `LockManager` - Concurrency control interface
+  - `ProofStorage` - Cryptographic proof management  
+  - `ReceiptStorage` - Transaction receipt tracking
+  - `WriteAheadLog` - Optional durability logging
+  - `LockManager` - Concurrency control
 
-- **units-storage-impl**: Concrete storage implementations
-  - In-memory implementations for development and testing
+- **units-storage-impl** - Concrete storage implementations
+  - `ConsolidatedUnitsStorage` - Primary storage implementation
+  - `InMemoryObjectStorage` - Development and testing storage
   - File-based write-ahead logging
   - Composable storage architecture
 
-- **units-runtime**: Runtime and VM execution
-  - VM execution environment for kernel modules
-  - `ObjectEffect` validation and application
-  - Transaction processing and receipt generation
-  - Host environment for sandboxed controllers
+- **units-runtime** - VM execution and transaction processing
+  - RISC-V VM executor with sandboxed controller execution
+  - Transaction effect validation and application
+  - Receipt generation and proof management
+  - Host environment for kernel modules
 
 ### Kernel Module Framework
 
-- **units-kernel-sdk**: Framework for building kernel modules
-  - 🆕 **Safe allocator abstraction** - no unsafe code required for kernel authors
-  - Core types (`UnitsObjectId`, `ExecutionContext`, `ObjectEffect`)  
-  - System call interface for sandboxed execution
-  - Built-in error handling and serialization
+- **units-kernel-sdk** - Safe development framework for kernel modules
+  - **Zero unsafe code required** - `use_default_allocator!()` macro
+  - Thread-safe bump allocator for VM environments
+  - Core types and execution context management
+  - Error handling and serialization utilities
 
-- **units-kernel-modules/token**: Example token implementation
-  - Complete ERC-20 style token functionality
-  - Uses safe SDK allocator (no custom unsafe code)
+- **units-kernel-modules** - Reference kernel module implementations
+  - **token/** - Complete ERC-20 style token implementation in pure Rust
   - Demonstrates best practices for kernel module development
+  - Uses SDK allocator (no custom unsafe code)
 
-## Architecture
+## Current Implementation Status
 
-### Consolidated Storage Design
+### ✅ Production Ready
+- **RISC-V VM Execution** - Sandboxed controller execution with rvsim
+- **Unified Object Model** - Complete UnitsObject architecture
+- **Storage Architecture** - Trait-based composition design
+- **Kernel SDK** - Safe Rust development framework
+- **Token Module** - Reference implementation
+- **Proof Generation** - Cryptographic state commitments
 
-The new storage architecture follows **composition over inheritance**:
+### 🚧 Architecture Defined, Implementation Pending
+- **WebAssembly VM** - WASM module execution
+- **eBPF VM** - eBPF program support  
+- **Cross-Controller Communication** - Multi-controller transactions
+- **Distributed Execution** - Network consensus integration
 
-```rust
-// Import trait definitions
-use units_storage::{ObjectStorage, ProofStorage, WriteAheadLog, ReceiptStorage};
-// Import concrete implementations
-use units_storage_impl::ConsolidatedUnitsStorage;
-
-// Create storage with all capabilities
-let storage = ConsolidatedUnitsStorage::create();
-
-// Or compose your own using the traits
-let custom_storage = units_storage::UnitsStorage::new(
-    MyObjectStorage::new(),
-    MyProofStorage::new(), 
-    Some(MyWriteAheadLog::new())
-);
-```
-
-**Benefits:**
-- **55% reduction** in trait complexity (from ~1,800 lines to ~800 lines)
-- **Clear separation of concerns** - each trait has a single responsibility
-- **Easy testing and mocking** - focused interfaces
-- **Better performance** - no complex inheritance hierarchies
-
-### Object Effects: The Heart of UNITS
-
-Objects in UNITS are **immutable** and can only be modified through `ObjectEffect`s:
-
-```rust
-pub struct ObjectEffect {
-    pub object_id: UnitsObjectId,
-    pub before_image: Option<UnitsObject>,  // None = creation
-    pub after_image: Option<UnitsObject>,   // None = deletion
-}
-```
-
-**Why ObjectEffect exists:**
-1. **Sandboxed Controllers**: Kernel modules run in isolated VMs and can't directly modify storage
-2. **Security Validation**: System validates that controllers only modify objects they own
-3. **Audit Trail**: Complete before/after history for cryptographic proofs
-4. **Cross-VM Portability**: Uniform interface across RISC-V, WASM, eBPF execution
-
-**Execution Flow:**
-```
-Controller VM → ObjectEffects → Validation → Storage → Proofs
-```
-
-### Kernel Module Development
-
-The SDK provides everything needed for safe kernel module development:
-
-```rust
-// In your kernel module's main.rs
-#![no_std]
-#![no_main]
-
-use units_kernel_sdk::use_default_allocator;
-
-// One line - no unsafe code needed!
-use_default_allocator!();
-
-// Your kernel module logic...
-```
-
-The SDK handles:
-- ✅ **Memory allocation** - safe, thread-safe bump allocator
-- ✅ **System calls** - I/O, context reading, effect writing  
-- ✅ **Error handling** - standardized error types
-- ✅ **Serialization** - Borsh-based object encoding
-
-## Usage
+## Quick Start
 
 ### Basic Storage Operations
 
 ```rust
 use units_storage_impl::ConsolidatedUnitsStorage;
-use units_core::{UnitsObjectId, UnitsObject};
+use units_core::{UnitsObjectId, UnitsObject, ObjectType};
 
-// Create consolidated storage instance
+// Create unified storage
 let storage = ConsolidatedUnitsStorage::create();
 
-// Create and store an object  
-let id = UnitsObjectId::new([1u8; 32]);
-let controller = UnitsObjectId::new([2u8; 32]);
-let object = UnitsObject::new(id, controller, vec![1, 2, 3]);
+// Create object with controller
+let object_id = UnitsObjectId::new([1u8; 32]);
+let controller_id = UnitsObjectId::new([2u8; 32]);
+let object = UnitsObject {
+    id: object_id,
+    controller_id,
+    object_type: ObjectType::Data,
+    data: vec![1, 2, 3, 4],
+};
 
-// Store with proof generation
+// Store with automatic proof generation
 let proof = storage.inner().objects.set(&object, None)?;
 storage.inner().proofs.store_object_proof(&proof)?;
 
 // Retrieve object
-if let Some(retrieved) = storage.inner().objects.get(&id)? {
-    println!("Found object: {:?}", retrieved);
+let retrieved = storage.inner().objects.get(&object_id)?;
+```
+
+### Transaction Processing with Effects
+
+```rust
+use units_core::transaction::{TransactionEffect, ObjectEffect};
+
+// Controllers return effects describing their changes
+let effect = TransactionEffect {
+    transaction_hash: tx_hash,
+    object_id: token_id,
+    before_image: Some(old_token_state),
+    after_image: Some(new_token_state),
+};
+
+// Runtime validates and applies effects
+runtime.validate_effects(&[effect], controller_id)?;
+runtime.apply_effects(&[effect])?;
+```
+
+### Kernel Module Development
+
+```rust
+// No unsafe code required!
+#![no_std]
+#![no_main]
+
+use units_kernel_sdk::{
+    use_default_allocator, KernelModule, 
+    ExecutionContext, ObjectEffect, KernelError
+};
+
+// One line - handles all memory management
+use_default_allocator!();
+
+pub struct MyModule;
+
+impl KernelModule for MyModule {
+    fn execute(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+        match ctx.instruction.target_function.as_str() {
+            "my_function" => {
+                // Safe Rust implementation
+                // SDK handles memory, serialization, system calls
+                Ok(vec![/* effects */])
+            }
+            _ => Err(KernelError::UnknownFunction)
+        }
+    }
 }
 ```
 
-### Transaction Processing with ObjectEffects
-
-```rust
-use units_core::transaction::ObjectEffect;
-
-// Controllers return ObjectEffects describing their changes
-let effects = vec![
-    ObjectEffect::creation(new_token),
-    ObjectEffect::modification(old_balance, new_balance),
-];
-
-// Runtime validates and applies effects
-runtime.validate_effects(&effects, controller_id)?;
-runtime.apply_effects(&effects)?;
-```
-
-### Receipt Storage
+### Receipt and Historical Queries
 
 ```rust
 use units_storage::ReceiptStorage;
-use units_storage_impl::InMemoryReceiptStorage;
-
-let receipts = InMemoryReceiptStorage::new();
-
-// Store transaction receipt
-receipts.store_receipt(&receipt)?;
 
 // Query receipts by slot
-let slot_receipts = receipts.get_receipts_for_slot(12345)?;
+let receipts = storage.inner().receipts.get_receipts_for_slot(slot_num)?;
 
 // Query receipts affecting specific object
-let object_receipts = receipts.get_receipts_for_object(
+let object_receipts = storage.inner().receipts.get_receipts_for_object(
     &object_id, Some(start_slot), Some(end_slot)
 )?;
+
+// Historical object states (if supported by storage implementation)
+let historical_object = storage.inner().objects.get_at_slot(&object_id, slot)?;
 ```
 
-### Historical Queries
+## Architecture Highlights
 
+### Composition Over Inheritance
+Storage traits are focused and composable:
 ```rust
-use units_storage::HistoricalStorage;
+// Import trait definitions
+use units_storage::{ObjectStorage, ProofStorage, ReceiptStorage};
+// Import implementations  
+use units_storage_impl::{InMemoryObjectStorage, ConsolidatedUnitsStorage};
 
-// Get object at specific slot (if storage supports historical queries)
-let historical_object = storage.inner().objects.get_at_slot(&id, slot_num)?;
-
-// Get object history over time range
-let history = storage.inner().objects.get_history(&id, start_slot, end_slot)?;
-
-// Get proof history
-let proof_history = storage.inner().proofs.get_proof_history(
-    &id, Some(start_slot), Some(end_slot)
-)?;
+// Mix and match implementations
+let custom_storage = units_storage::UnitsStorage::new(
+    MyObjectStorage::new(),
+    MyProofStorage::new(),
+    Some(MyWriteAheadLog::new())
+);
 ```
 
+### Security Through Sandboxing
+- Controllers run in isolated VM environments (currently RISC-V)
+- No direct storage access - only through provided object context
+- Resource limits (memory, instructions) enforced per execution
+- All mutations captured as structured effects for validation
 
-## Key Improvements
+### Cryptographic Auditability
+- Every object mutation generates cryptographic proof
+- Complete before/after state history
+- Slot-level proof aggregation
+- Verifiable audit trail of all changes
 
-### Storage Architecture
-- **Clean separation**: Traits in `units-storage`, implementations in `units-storage-impl`
-- **Composition pattern**: Flexible capability combinations
-- **Standard iterators**: No complex async adapters required
-- **Clear responsibilities**: Each trait has a single, focused purpose
-
-### Kernel Module Framework  
-- **Zero unsafe code**: `use_default_allocator!()` macro handles everything
-- **Thread-safe allocator**: Atomic operations for VM safety
-- **Consistent interface**: Same allocator for all kernel modules
-- **Easy development**: Focus on business logic, not memory management
-
-### Developer Experience
-- **Focused traits**: Single responsibility interfaces
-- **Better documentation**: Clear examples and usage patterns  
-- **Simplified architecture**: Clean separation of concerns
-- **Modern patterns**: Composition over inheritance throughout
-
-## Building
+## Building and Testing
 
 ```bash
-# Build all crates
-cargo build
+# Build all workspace crates
+fish -c "cargo workspaces exec -- cargo build"
 
-# Run tests  
-cargo test
+# Run tests across workspace
+fish -c "cargo workspaces exec -- cargo test"
 
-# Check a specific crate
-cd units-kernel-sdk && cargo check
+# Check specific crate
+fish -c "cd units-kernel-sdk && cargo check"
+
+# Format code
+fish -c "cargo workspaces exec -- cargo fmt"
 ```
+
+## Recent Improvements
+
+### Storage Architecture (55% complexity reduction)
+- **Clean separation**: Traits in `units-storage`, implementations in `units-storage-impl`
+- **Focused interfaces**: Each trait has single responsibility
+- **No complex inheritance**: Composition-based design
+- **Better performance**: Simplified trait dispatch
+
+### Kernel Module Framework
+- **Zero unsafe code**: SDK handles all memory management
+- **Thread-safe allocator**: Atomic operations for VM safety
+- **Rust-first design**: Type-safe development experience
+- **Easy integration**: Focus on business logic, not plumbing
+
+### Developer Experience
+- **Clear documentation**: Comprehensive examples and usage patterns
+- **Modern patterns**: Composition over inheritance throughout
+- **Production ready**: Battle-tested RISC-V execution
+- **Extensible design**: Add new VM types without breaking changes
 
 ## License
 

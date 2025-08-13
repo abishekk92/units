@@ -18,17 +18,16 @@ This document specifies the unified object architecture for UNITS storage, where
 
 ```rust
 /// VM types for executable objects
+/// Currently only RISC-V is implemented - other types are reserved for future extensions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum VMType {
-    /// RISC-V ELF shared objects (primary implementation)
+    /// RISC-V ELF shared objects (currently implemented)
     RiscV,
-    /// WebAssembly modules (future extension)
-    Wasm,
-    /// eBPF programs (future extension)
-    Ebpf,
-    /// x86_64 native code (future extension, if needed)
-    Native,
+    // Future VM types will be added here:
+    // Wasm,   - WebAssembly modules (planned)
+    // Ebpf,   - eBPF programs (planned) 
+    // Native, - x86_64 native code (planned)
 }
 
 /// Object type distinguishing data from executable objects
@@ -128,8 +127,8 @@ pub struct ExecutionContext {
     /// Current timestamp
     pub timestamp: u64,
     
-    /// Host environment variables
-    pub env_vars: HashMap<String, String>,
+    
+    // Note: env_vars field planned for future implementation
 }
 
 impl ExecutionContext {
@@ -151,29 +150,50 @@ impl ExecutionContext {
 
 All kernel modules must implement a standard `main` entrypoint regardless of VM type:
 
-**RISC-V Controllers:**
-```c
-/// Standard entrypoint - dispatches to target function based on ExecutionContext
-/// Input: Serialized ExecutionContext at INPUT_BUFFER_ADDR
-/// Output: Serialized Vec<ObjectEffect> at OUTPUT_BUFFER_ADDR
-/// @return 0 on success, non-zero error code on failure
+**RISC-V Controllers (Current Rust Implementation):**
+```rust
+/// Current implementation uses pure Rust with units-kernel-sdk
+/// Controllers implement the KernelModule trait for type-safe execution
 
+use units_kernel_sdk::{KernelModule, ExecutionContext, ObjectEffect, KernelError};
+
+pub struct TokenModule;
+
+impl KernelModule for TokenModule {
+    fn execute(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+        // Dispatch based on target function
+        match ctx.instruction.target_function.as_str() {
+            "create_token" => Self::handle_create_token(ctx),
+            "transfer_token" => Self::handle_transfer_token(ctx),
+            "mint_token" => Self::handle_mint_token(ctx),
+            "burn_token" => Self::handle_burn_token(ctx),
+            _ => Err(KernelError::UnknownFunction),
+        }
+    }
+}
+
+// Safe memory management via SDK allocator
+use_default_allocator!();
+
+// Example function handlers
+impl TokenModule {
+    fn handle_transfer_token(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
+        // Implementation uses safe Rust - no unsafe code required
+    }
+}
+```
+
+**Legacy C Interface (Documentation Reference):**
+```c
+// Historical reference - current implementation uses Rust
 #define INPUT_BUFFER_ADDR  0x10000000
 #define OUTPUT_BUFFER_ADDR 0x20000000
 #define MAX_BUFFER_SIZE    (1024 * 1024)  // 1MB limit
 
 int main(void) {
-    // 1. Read ExecutionContext from INPUT_BUFFER_ADDR
-    // 2. Parse instruction.target_function (e.g., "transfer", "mint")
-    // 3. Dispatch to appropriate function handler
-    // 4. Write Vec<ObjectEffect> to OUTPUT_BUFFER_ADDR
-    // 5. Return 0 for success, error code for failure
+    // Legacy C-based controller interface
+    // Replaced by safe Rust implementation above
 }
-
-// Example function handlers within controller:
-int handle_transfer(ExecutionContext* ctx);
-int handle_mint(ExecutionContext* ctx);
-int handle_burn(ExecutionContext* ctx);
 ```
 
 **Future VM Types:**
@@ -183,11 +203,12 @@ int handle_burn(ExecutionContext* ctx);
 
 ### Object Effects
 
-Controllers return object state changes from instruction execution:
+Controllers return object state changes from instruction execution. In the current implementation, `ObjectEffect` and `TransactionEffect` are unified:
 
 ```rust
 /// Effect of controller execution on a single object
 /// Represents before/after state for one object in an instruction
+/// Note: This is currently aliased as TransactionEffect for compatibility
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObjectEffect {
     /// The object that was modified
@@ -199,6 +220,9 @@ pub struct ObjectEffect {
     /// State after instruction execution (None if object was deleted)  
     pub after_image: Option<UnitsObject>,
 }
+
+// Current implementation aliases for compatibility
+pub type TransactionEffect = ObjectEffect;
 
 impl ObjectEffect {
     /// Create new object effect
@@ -248,51 +272,36 @@ All ObjectEffects are validated before applying to storage:
    - Default: 10MB per object data payload
    - Prevents resource exhaustion attacks
 
-### Transaction Effects
+### Current Transaction Effect Implementation
 
-Transaction effects aggregate all object changes from a complete transaction:
+In the current implementation, transaction effects are simplified to track single object changes:
 
 ```rust
-/// Complete transaction effect containing all object modifications
+/// Current unified effect structure for single object changes
+/// Note: This represents the current implementation - future versions may
+/// separate ObjectEffect and TransactionEffect for multi-object transactions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionEffect {
-    /// The transaction that caused these effects
+    /// The transaction that caused this effect
     pub transaction_hash: TransactionHash,
     
-    /// All object effects from this transaction's instruction(s)
-    pub object_effects: Vec<ObjectEffect>,
+    /// The single object that was modified
+    pub object_id: UnitsObjectId,
     
-    /// Slot in which transaction was processed
-    pub slot: u64,
+    /// State before instruction execution (None if object was created)
+    pub before_image: Option<UnitsObject>,
     
-    /// Timestamp of transaction processing
-    pub timestamp: u64,
-}
-
-impl TransactionEffect {
-    /// Create transaction effect from controller execution results
-    pub fn from_object_effects(
-        transaction_hash: TransactionHash,
-        object_effects: Vec<ObjectEffect>,
-        slot: u64,
-        timestamp: u64,
-    ) -> Self {
-        Self {
-            transaction_hash,
-            object_effects,
-            slot,
-            timestamp,
-        }
-    }
+    /// State after instruction execution (None if object was deleted)  
+    pub after_image: Option<UnitsObject>,
 }
 ```
 
-**Relationship**:
-- **ObjectEffect**: Single object's before/after state from one instruction  
-- **TransactionEffect**: Complete collection of all ObjectEffects from entire transaction
-- **TransactionReceipt**: Contains TransactionEffect plus proofs, attestation, and metadata
+**Current Relationship**:
+- **ObjectEffect**: Aliased to `TransactionEffect` in current implementation
+- **TransactionEffect**: Single object's before/after state from one instruction
+- **TransactionReceipt**: Contains `Vec<TransactionEffect>` for multi-object transactions
 
-**Note**: Current implementation has `Vec<TransactionEffect>` in TransactionReceipt, but with single-controller validation, each transaction produces exactly one TransactionEffect. This aligns with future cross-controller support where multiple controllers could generate multiple TransactionEffects.
+**Future Evolution**: The architecture reserves space for separating these concepts when implementing cross-controller communication and multi-object transactions.
 
 ## Transaction Execution Pipeline
 
@@ -461,7 +470,29 @@ system_loader.register_vm_executor(VMType::Ebpf, Box::new(EbpfExecutor::new()));
 - System loader controls creation of new kernel modules
 - Clear chain of trust from bootstrap to all objects
 
-## Storage Integration
+## Storage Architecture
+
+### Trait-Based Storage Design
+
+The storage system follows a **composition over inheritance** pattern with clear separation:
+
+```rust
+// units-storage: Trait definitions only
+use units_storage::{
+    ObjectStorage,     // Core object persistence
+    ProofStorage,      // Cryptographic proof management  
+    ReceiptStorage,    // Transaction receipt tracking
+    WriteAheadLog,     // Optional durability logging
+    LockManager,       // Concurrency control
+};
+
+// units-storage-impl: Concrete implementations
+use units_storage_impl::{
+    InMemoryObjectStorage,
+    ConsolidatedUnitsStorage,
+    InMemoryReceiptStorage,
+};
+```
 
 ### Key-Value Mapping
 ```
@@ -470,16 +501,17 @@ UnitsObjectId (32 bytes) → UnitsObject (serialized)
 
 ### Object Proof Generation
 - Each object mutation generates cryptographic proof
-- Proofs commit to before/after object states
+- Proofs commit to before/after object states  
 - Slot-level aggregation of all object proofs
 - Complete audit trail of all mutations
 
-### Transaction Effects
+### Current Transaction Effect Storage
 ```rust
+// Current implementation stores individual object effects
 pub struct TransactionEffect {
     pub transaction_hash: TransactionHash,
     pub object_id: UnitsObjectId,
-    pub before_image: Option<UnitsObject>,
+    pub before_image: Option<UnitsObject>, 
     pub after_image: Option<UnitsObject>,
 }
 ```
@@ -498,23 +530,43 @@ pub struct TransactionEffect {
 3. **Phase 3**: Attestation and advanced security features
 4. **Phase 4**: Additional VM types (WASM, eBPF) and cross-controller communication
 
-## Future Extensions
+## Implementation Status
 
-### Cross-Controller Communication
-Reserved design space for future implementation:
-- Remove single-controller validation
+### ✅ Currently Implemented
+- **RISC-V VM Execution**: Production-ready with rvsim integration
+- **Unified Object Model**: Complete UnitsObject structure
+- **Storage Traits**: Clean separation of concerns (units-storage vs units-storage-impl)
+- **Kernel SDK**: Safe Rust development framework with allocator abstraction
+- **Token Module**: Reference implementation in pure Rust
+- **Transaction Processing**: ObjectEffect validation and application
+- **Proof Generation**: Cryptographic object state commitments
+
+### 🚧 Planned Extensions
+
+#### Additional VM Types
+- **WebAssembly**: WASM module execution (architecture defined, implementation pending)
+- **eBPF**: eBPF program support (architecture defined, implementation pending)  
+- **Native**: x86_64 native code execution (architecture defined, implementation pending)
+
+#### Cross-Controller Communication
+- Remove single-controller validation constraint
 - Add controller dependency resolution
 - Implement secure cross-controller call interface
 
-### Multi-Runtime Optimization  
+#### Multi-Runtime Optimization  
 - Runtime detection via bytecode headers
 - JIT compilation for performance-critical controllers
 - Native code generation for trusted system controllers
 
-### Distributed Execution
+#### Distributed Execution
 - Network attestation protocols
 - Consensus integration for distributed object modifications
 - Cross-node object effect synchronization
+
+### Migration Notes
+- Current implementation uses simplified TransactionEffect (single object per effect)
+- Future versions will expand to multi-object transactions
+- VM interface designed for extensibility - new VM types can be added without breaking changes
 
 ## References
 
