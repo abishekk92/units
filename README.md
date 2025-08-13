@@ -13,7 +13,7 @@ UNITS implements a unified object architecture where **everything is an object**
 ### Core Components
 
 - **units-core** - Fundamental types and data structures
-  - `UnitsObjectId` - 32-byte cryptographic object identifiers  
+  - `UnitsObjectId` - 32-byte cryptographic object identifiers
   - `UnitsObject` - Unified object model with controller-based access control
   - `TransactionEffect`/`ObjectEffect` - State transition tracking
   - System constants (`SYSTEM_LOADER_ID`, `TOKEN_CONTROLLER_ID`)
@@ -21,7 +21,7 @@ UNITS implements a unified object architecture where **everything is an object**
 
 - **units-storage** - Storage trait definitions (composition-based architecture)
   - `ObjectStorage` - Core object persistence interface
-  - `ProofStorage` - Cryptographic proof management  
+  - `ProofStorage` - Cryptographic proof management
   - `ReceiptStorage` - Transaction receipt tracking
   - `WriteAheadLog` - Optional durability logging
   - `LockManager` - Concurrency control
@@ -63,7 +63,7 @@ UNITS implements a unified object architecture where **everything is an object**
 
 ### 🚧 Architecture Defined, Implementation Pending
 - **WebAssembly VM** - WASM module execution
-- **eBPF VM** - eBPF program support  
+- **eBPF VM** - eBPF program support
 - **Cross-Controller Communication** - Multi-controller transactions
 - **Distributed Execution** - Network consensus integration
 
@@ -122,7 +122,7 @@ runtime.apply_effects(&[effect])?;
 #![no_main]
 
 use units_kernel_sdk::{
-    use_default_allocator, KernelModule, 
+    use_default_allocator, KernelModule,
     ExecutionContext, ObjectEffect, KernelError
 };
 
@@ -169,7 +169,7 @@ Storage traits are focused and composable:
 ```rust
 // Import trait definitions
 use units_storage::{ObjectStorage, ProofStorage, ReceiptStorage};
-// Import implementations  
+// Import implementations
 use units_storage_impl::{InMemoryObjectStorage, ConsolidatedUnitsStorage};
 
 // Mix and match implementations
@@ -207,27 +207,6 @@ fish -c "cd units-kernel-sdk && cargo check"
 # Format code
 fish -c "cargo workspaces exec -- cargo fmt"
 ```
-
-## Recent Improvements
-
-### Storage Architecture (55% complexity reduction)
-- **Clean separation**: Traits in `units-storage`, implementations in `units-storage-impl`
-- **Focused interfaces**: Each trait has single responsibility
-- **No complex inheritance**: Composition-based design
-- **Better performance**: Simplified trait dispatch
-
-### Kernel Module Framework
-- **Zero unsafe code**: SDK handles all memory management
-- **Thread-safe allocator**: Atomic operations for VM safety
-- **Rust-first design**: Type-safe development experience
-- **Easy integration**: Focus on business logic, not plumbing
-
-### Developer Experience
-- **Clear documentation**: Comprehensive examples and usage patterns
-- **Modern patterns**: Composition over inheritance throughout
-- **Production ready**: Battle-tested RISC-V execution
-- **Extensible design**: Add new VM types without breaking changes
-
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
