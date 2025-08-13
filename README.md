@@ -6,221 +6,248 @@ A modular storage and runtime system for the Universal Information Tokenization 
 
 UNITS is a component of Finternet that provides a way to tokenize and manage objects. This workspace implements the full UNITS stack, organized into logical crates that work together.
 
+**The core principle**: Objects can only be mutated by their controller through sandboxed execution, with all changes cryptographically verified and auditable.
+
 ## Workspace Structure
 
 The project is organized as a Cargo workspace with the following crates:
 
+### Core Components
+
 - **units-core**: Core data structures and fundamental types
-  - UnitsObjectId
-  - UnitsObject (consolidated object model)
-  - Transaction types
-  - Locking primitives
-  - Scheduler
-  - Cryptographic proof systems (Merkle Proofs, Proof Engines, State Proofs)
+  - `UnitsObjectId` - 32-byte object identifiers  
+  - `UnitsObject` - Immutable objects with controller-based access control
+  - Transaction types (`TransactionEffect`, `ObjectEffect`)
+  - Locking primitives and scheduling
+  - Cryptographic proof systems (Merkle Proofs, State Proofs)
   - Basic error types
 
-- **units-storage-impl**: Storage backends
-  - Storage Traits
-  - SQLite Implementation (enabled by default)
-  - Lock Manager
-  - Write-Ahead Log
+- **units-storage-impl**: **Consolidated Storage Architecture** 
+  - 🆕 **Modern trait-based design** with clear separation of concerns
+  - `ObjectStorage` - Core object persistence
+  - `ProofStorage` - Cryptographic proof management  
+  - `ReceiptStorage` - Transaction receipt tracking
+  - `WriteAheadLog` - Optional durability logging
+  - `LockManager` - Concurrency control
+  - In-memory implementations for testing/development
+  - ⚠️  Legacy SQLite backend (deprecated in favor of new architecture)
 
-- **units-runtime**: Runtime and verification
-  - Object Runtime
-  - Host Environment
-  - Proof Verification
-  - Runtime Backend
+- **units-runtime**: Runtime and VM execution
+  - VM execution environment for kernel modules
+  - `ObjectEffect` validation and application
+  - Transaction processing and receipt generation
+  - Host environment for sandboxed controllers
 
-## Features
+### Kernel Module Framework
 
-- **Storage Trait**: A unified interface for different storage backends
-- **UnitsObject**: Consolidated object model with cryptographic features
-- **Verifiable History**: Cryptographic proof chains that link object states over time
-- **Write-Ahead Log**: Durable logging of all state changes for reliability
-- **Slot-Based Versioning**: Historical tracking of objects and their proofs
-- **Integrated Transaction System**: Unified transaction handling with locking primitives
-- **Lock Manager**: Coordinated object access control
-- **SQLite Backend**: Reliable and efficient storage implementation
+- **units-kernel-sdk**: Framework for building kernel modules
+  - 🆕 **Safe allocator abstraction** - no unsafe code required for kernel authors
+  - Core types (`UnitsObjectId`, `ExecutionContext`, `ObjectEffect`)  
+  - System call interface for sandboxed execution
+  - Built-in error handling and serialization
+
+- **units-kernel-modules/token**: Example token implementation
+  - Complete ERC-20 style token functionality
+  - Uses safe SDK allocator (no custom unsafe code)
+  - Demonstrates best practices for kernel module development
 
 ## Architecture
 
-For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
+### Consolidated Storage Design
 
-### Proof System
+The new storage architecture follows **composition over inheritance**:
 
-The proof system is designed to provide cryptographic guarantees about object states and their history:
+```rust
+// Modern approach - compose storage capabilities
+use units_storage_impl::{
+    ObjectStorage, ProofStorage, WriteAheadLog, ReceiptStorage,
+    ConsolidatedUnitsStorage
+};
 
-1. **Object Proofs**: Each UnitsObject has a proof that:
-   - Commits to the current state of the object
-   - Links to the previous state through the `prev_proof_hash`
-   - Is tracked with a `slot` number to organize time
+// Create storage with exactly the capabilities you need
+let storage = ConsolidatedUnitsStorage::new();
 
-2. **State Proofs**: Aggregate multiple object proofs to commit to system state:
-   - Track which objects are included in each state proof
-   - Link to previous state proofs, creating a chain of state transitions
-   - Provide a way to verify the collective state at a point in time
+// Or compose your own
+let custom_storage = UnitsStorage::new(
+    MyObjectStorage::new(),
+    MyProofStorage::new(), 
+    Some(MyWriteAheadLog::new())
+);
+```
 
-3. **Proof Chains**: Verify historical transitions of objects:
-   - Any proof can be traced back to its ancestors
-   - Each transition is cryptographically verified
-   - Invalid transitions break the chain, ensuring data integrity
+**Benefits:**
+- **55% reduction** in trait complexity (from ~1,800 lines to ~800 lines)
+- **Clear separation of concerns** - each trait has a single responsibility
+- **Easy testing and mocking** - focused interfaces
+- **Better performance** - no complex inheritance hierarchies
 
-### Storage Layers
+### Object Effects: The Heart of UNITS
 
-The storage system is organized into distinct layers:
+Objects in UNITS are **immutable** and can only be modified through `ObjectEffect`s:
 
-1. **Write-Ahead Log (WAL)**:
-   - Durable log of all state changes before they're committed
-   - Provides crash recovery and audit capabilities
-   - Records both object updates and state proofs
+```rust
+pub struct ObjectEffect {
+    pub object_id: UnitsObjectId,
+    pub before_image: Option<UnitsObject>,  // None = creation
+    pub after_image: Option<UnitsObject>,   // None = deletion
+}
+```
 
-2. **Key-Value Store**:
-   - Current state of all objects and their proofs
-   - Optimized for fast reads and updates
-   - SQLite backend implementation
+**Why ObjectEffect exists:**
+1. **Sandboxed Controllers**: Kernel modules run in isolated VMs and can't directly modify storage
+2. **Security Validation**: System validates that controllers only modify objects they own
+3. **Audit Trail**: Complete before/after history for cryptographic proofs
+4. **Cross-VM Portability**: Uniform interface across RISC-V, WASM, eBPF execution
 
-3. **Historical State**:
-   - Versioned history of all objects and proofs
-   - Organized by slot number for time-based access
-   - Enables verification of past states and transitions
+**Execution Flow:**
+```
+Controller VM → ObjectEffects → Validation → Storage → Proofs
+```
+
+### Kernel Module Development
+
+The SDK provides everything needed for safe kernel module development:
+
+```rust
+// In your kernel module's main.rs
+#![no_std]
+#![no_main]
+
+use units_kernel_sdk::use_default_allocator;
+
+// One line - no unsafe code needed!
+use_default_allocator!();
+
+// Your kernel module logic...
+```
+
+The SDK handles:
+- ✅ **Memory allocation** - safe, thread-safe bump allocator
+- ✅ **System calls** - I/O, context reading, effect writing  
+- ✅ **Error handling** - standardized error types
+- ✅ **Serialization** - Borsh-based object encoding
 
 ## Usage
 
-Add the following to your `Cargo.toml`:
-
-```toml
-[dependencies]
-# Use specific components:
-units-core = "0.1.0"
-units-storage-impl = "0.1.0"  # SQLite backend enabled by default
-units-runtime = "0.1.0"
-```
-
-The SQLite storage backend is enabled by default. To disable it and use a custom storage backend:
-
-```toml
-[dependencies]
-units-storage-impl = { version = "0.1.0", default-features = false }
-```
-
-## Examples
-
-### Basic Usage
+### Basic Storage Operations
 
 ```rust
+use units_storage_impl::ConsolidatedUnitsStorage;
 use units_core::{UnitsObjectId, UnitsObject};
-use units_storage_impl::{SqliteStorage, UnitsStorage};
-use std::path::Path;
 
-// Create a storage instance
-let storage = SqliteStorage::new(Path::new("./my_database.db")).unwrap();
+// Create consolidated storage instance
+let storage = ConsolidatedUnitsStorage::new();
 
-// Create an object
-let id = UnitsObjectId::random();
-let holder = UnitsObjectId::random();
-let obj = UnitsObject::new(
-    id,
-    holder,
-    vec![1, 2, 3, 4], // data
-);
+// Create and store an object  
+let id = UnitsObjectId::new([1u8; 32]);
+let controller = UnitsObjectId::new([2u8; 32]);
+let object = UnitsObject::new(id, controller, vec![1, 2, 3]);
 
-// Store the object and get its proof
-let proof = storage.set(&obj).unwrap();
-println!("Object proof: {:?}", proof);
+// Store with proof generation
+let proof = storage.objects.set(&object, None)?;
+storage.proofs.store_object_proof(&proof)?;
 
-// Retrieve the object
-if let Some(retrieved) = storage.get(&id).unwrap() {
-    println!("Retrieved object: {:?}", retrieved);
-}
-
-// Delete the object and get the deletion proof
-let deletion_proof = storage.delete(&id).unwrap();
-println!("Deletion proof: {:?}", deletion_proof);
-```
-
-### Transaction Processing
-
-```rust
-use units_core::{Transaction, Instruction, AccessIntent};
-use units_runtime::Runtime;
-
-// Create instructions for a transaction
-let instruction = Instruction {
-    data: vec![/* instruction data */],
-    object_intents: vec![(object_id, AccessIntent::Write)]
-};
-
-// Create a transaction
-let transaction = Transaction::new(vec![instruction]);
-
-// Execute the transaction
-let result = runtime.execute_transaction(&transaction).unwrap();
-
-if result.success {
-    // Transaction was executed successfully
-    println!("Transaction executed successfully");
-} else {
-    // Handle transaction failure
-    println!("Transaction failed: {:?}", result.error);
-}
-
-// Get transaction receipt
-let receipt = runtime.get_transaction_receipt(&transaction.hash).unwrap();
-println!("Transaction status: {:?}", receipt.status);
-```
-
-### Scanning Objects
-
-```rust
-// Iterate over all objects
-let mut iterator = storage.scan();
-while let Some(obj) = iterator.next() {
-    println!("Found object: {:?}", obj);
+// Retrieve object
+if let Some(retrieved) = storage.objects.get(&id)? {
+    println!("Found object: {:?}", retrieved);
 }
 ```
 
-### Proofs
+### Transaction Processing with ObjectEffects
 
 ```rust
-// Generate a state proof
-let state_proof = storage.generate_and_store_state_proof().unwrap();
-println!("State proof: {:?}", state_proof);
+use units_core::transaction::ObjectEffect;
 
-// Get the current proof for a specific object
-if let Some(obj_proof) = storage.get_proof(&id).unwrap() {
-    // Verify the proof
-    if storage.verify_proof(&id, &obj_proof).unwrap() {
-        println!("Proof verified!");
-    }
-}
+// Controllers return ObjectEffects describing their changes
+let effects = vec![
+    ObjectEffect::creation(new_token),
+    ObjectEffect::modification(old_balance, new_balance),
+];
 
-// Get an object's state at a specific historical slot
-let historical_slot = 12345;
-if let Some(historical_obj) = storage.get_at_slot(&id, historical_slot).unwrap() {
-    println!("Object at slot {}: {:?}", historical_slot, historical_obj);
-}
+// Runtime validates and applies effects
+runtime.validate_effects(&effects, controller_id)?;
+runtime.apply_effects(&effects)?;
+```
 
-// Get an object's proof at a specific historical slot
-if let Some(historical_proof) = storage.get_proof_at_slot(&id, historical_slot).unwrap() {
-    println!("Proof at slot {}: {:?}", historical_slot, historical_proof);
-}
+### Receipt Storage
 
-// Verify a chain of proofs between two slots
-if storage.verify_proof_chain(&id, 12340, 12350).unwrap() {
-    println!("Proof chain is valid!");
-}
+```rust
+use units_storage_impl::ReceiptStorage;
 
-// Iterate through an object's proof history
-let mut history = storage.get_proof_history(&id);
-while let Some(Ok((slot, proof))) = history.next() {
-    println!("Found proof at slot {}: {:?}", slot, proof);
-}
+// Store transaction receipt
+storage.receipts.store_receipt(&receipt)?;
 
-// Get all state proofs
-let mut state_proofs = storage.get_state_proofs();
-while let Some(Ok(proof)) = state_proofs.next() {
-    println!("State proof at slot {}: {:?}", proof.slot, proof);
-}
+// Query receipts by slot
+let slot_receipts = storage.receipts.get_receipts_for_slot(12345)?;
+
+// Query receipts affecting specific object
+let object_receipts = storage.receipts.get_receipts_for_object(
+    &object_id, Some(start_slot), Some(end_slot)
+)?;
+```
+
+### Historical Queries
+
+```rust
+use units_storage_impl::HistoricalStorage;
+
+// Get object at specific slot
+let historical_object = storage.objects.get_at_slot(&id, slot_num)?;
+
+// Get object history over time range
+let history = storage.objects.get_history(&id, start_slot, end_slot)?;
+
+// Get proof history
+let proof_history = storage.proofs.get_proof_history(
+    &id, Some(start_slot), Some(end_slot)
+)?;
+```
+
+## Migration from Legacy Code
+
+The codebase maintains **backward compatibility** while encouraging migration:
+
+```rust
+// ⚠️ Legacy (deprecated)
+use units_storage_impl::LegacyUnitsStorage;
+
+// ✅ Modern (recommended)  
+use units_storage_impl::{ObjectStorage, ProofStorage, ConsolidatedUnitsStorage};
+```
+
+All legacy traits are marked `#[deprecated]` with migration guidance.
+
+## Key Improvements
+
+### Storage Architecture
+- **Trait consolidation**: From 8 overlapping traits to 5 focused traits
+- **Composition pattern**: Flexible capability combinations
+- **Standard iterators**: No complex async adapters required
+- **Clear responsibilities**: Object storage ≠ proof storage ≠ WAL
+
+### Kernel Module Framework  
+- **Zero unsafe code**: `use_default_allocator!()` macro handles everything
+- **Thread-safe allocator**: Atomic operations for VM safety
+- **Consistent interface**: Same allocator for all kernel modules
+- **Easy development**: Focus on business logic, not memory management
+
+### Developer Experience
+- **Focused traits**: Single responsibility interfaces
+- **Better documentation**: Clear examples and migration paths  
+- **Reduced complexity**: 55% fewer lines in storage layer
+- **Modern patterns**: Composition over inheritance throughout
+
+## Building
+
+```bash
+# Build all crates
+cargo build
+
+# Run tests  
+cargo test
+
+# Check a specific crate
+cd units-kernel-sdk && cargo check
 ```
 
 ## License

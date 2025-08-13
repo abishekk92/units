@@ -1,4 +1,4 @@
-use crate::storage_traits::{UnitsWriteAheadLog, WALEntry};
+use crate::deprecated::storage_traits::{UnitsWriteAheadLog, WALEntry};
 use bincode;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};

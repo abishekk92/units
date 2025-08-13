@@ -3,12 +3,12 @@
 use crate::lock_manager::SqliteLockManager;
 use crate::wal::WALWriter;
 use units_core::locks::PersistentLockManager;
-use crate::storage_traits::{
+use crate::deprecated::storage_traits::{
     TransactionReceiptStorage, UnitsProofIterator, UnitsReceiptIterator, UnitsStateProofIterator,
     UnitsStorage, UnitsStorageIterator, UnitsStorageProofEngine, UnitsWriteAheadLog, WALEntry,
 };
 use anyhow::{Context, Result};
-use crate::storage_traits::{AsyncSource, AsyncSourceAdapter, UnitsIterator};
+use crate::deprecated::storage_traits::{AsyncSource, AsyncSourceAdapter, UnitsIterator};
 use log;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions},
