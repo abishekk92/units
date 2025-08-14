@@ -203,7 +203,7 @@ pub fn detect_double_spend(
 mod tests {
     use super::*;
     use units_core::id::UnitsObjectId;
-    use units_core::proofs::merkle_proof::MerkleProofEngine;
+    use units_core::proofs::ProofEngine;
 
     fn create_test_object() -> UnitsObject {
         UnitsObject::new_data(
@@ -216,14 +216,14 @@ mod tests {
     #[test]
     fn test_verify_object_proof() {
         // Create a test object and generate a proof
-        let engine = MerkleProofEngine::new();
+        let engine = ProofEngine::new();
         let object = create_test_object();
 
         // Generate a valid proof
         let proof = engine.generate_object_proof(&object, None, None).unwrap();
 
         // Create a verifier
-        let verifier = ProofVerifier::new(&engine);
+        let verifier = ProofVerifier::new();
 
         // Verify the proof
         let result = verifier.verify_object_proof(&object, &proof);
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_verify_transaction_receipt() {
         // Create test objects and proofs
-        let engine = MerkleProofEngine::new();
+        let engine = ProofEngine::new();
         let object1 = create_test_object();
         let object2 = create_test_object();
 
@@ -272,7 +272,7 @@ mod tests {
         objects.insert(*object2.id(), object2.clone());
 
         // Create a verifier
-        let verifier = ProofVerifier::new(&engine);
+        let verifier = ProofVerifier::new();
 
         // Verify the receipt
         let result = verifier.verify_transaction_receipt(&receipt, &objects);
