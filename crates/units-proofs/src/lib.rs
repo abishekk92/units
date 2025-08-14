@@ -3,7 +3,7 @@ pub mod types;
 
 // Re-export main types and functions for convenience
 pub use engine::ProofEngine;
-pub use types::{SlotNumber, StateProof, UnitsObjectProof, VerificationResult, MerkleNode};
+pub use types::{Proof, SlotNumber, StateProof, UnitsObjectProof, VerificationResult, MerkleNode};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

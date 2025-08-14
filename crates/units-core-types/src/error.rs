@@ -147,14 +147,15 @@ impl From<&str> for StorageError {
     }
 }
 
-impl From<units_proofs::types::StorageError> for StorageError {
-    fn from(err: units_proofs::types::StorageError) -> Self {
+impl From<crate::ProofStorageError> for StorageError {
+    fn from(err: crate::ProofStorageError) -> Self {
         match err {
-            units_proofs::types::StorageError::Serialization(msg) => StorageError::Serialization(msg),
-            units_proofs::types::StorageError::ProofVerification => StorageError::ProofVerification("Proof verification failed".to_string()),
-            units_proofs::types::StorageError::ProofNotFound => StorageError::NotFound("Proof not found".to_string()),
-            units_proofs::types::StorageError::ProofChainInvalid(msg) => StorageError::ProofVerification(msg),
-            units_proofs::types::StorageError::ProofMissingData(msg) => StorageError::Other(format!("Proof missing data: {}", msg)),
+            crate::ProofStorageError::Serialization(msg) => StorageError::Serialization(msg),
+            crate::ProofStorageError::ProofVerification => StorageError::ProofVerification("Proof verification failed".to_string()),
+            crate::ProofStorageError::ProofNotFound => StorageError::NotFound("Proof not found".to_string()),
+            crate::ProofStorageError::ProofChainInvalid(msg) => StorageError::ProofVerification(msg),
+            crate::ProofStorageError::ProofMissingData(msg) => StorageError::Other(format!("Proof missing data: {}", msg)),
         }
     }
 }
+

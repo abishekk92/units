@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use units_core_types::id::UnitsObjectId;
 use units_core_types::objects::UnitsObject;
 use units_core_types::transaction::{Transaction, TransactionReceipt};
-use units_storage::{ObjectStorage, ReceiptStorage};
+use units_storage::ObjectStorage;
 use units_storage_impl::ConsolidatedUnitsStorage;
 use units_runtime::Runtime;
 
@@ -16,7 +16,9 @@ use crate::error::{ServiceError, ServiceResult};
 #[derive(Clone)]
 pub struct UnitsService {
     storage: Arc<ConsolidatedUnitsStorage>,
+    #[allow(dead_code)]
     runtime: Arc<dyn Runtime + Send + Sync>,
+    #[allow(dead_code)]
     config: Config,
     // In-memory transaction pool for demonstration
     transaction_pool: Arc<RwLock<HashMap<[u8; 32], Transaction>>>,
@@ -78,7 +80,7 @@ impl UnitsService {
 
     /// Execute a transaction (simplified - normally would be handled by consensus)
     pub async fn execute_transaction(&self, tx_hash: &[u8; 32]) -> ServiceResult<TransactionReceipt> {
-        let transaction = self.get_transaction(tx_hash).await?;
+        let _transaction = self.get_transaction(tx_hash).await?;
         
         // For now, just return a mock receipt
         // In a real implementation, this would:

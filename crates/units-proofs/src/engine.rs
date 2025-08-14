@@ -4,15 +4,9 @@
 //! 1. Cryptographically prove object state at any slot
 //! 2. Cryptographically prove transaction inclusion in a slot
 
-use crate::types::{SlotNumber, StateProof, UnitsObjectProof, VerificationResult, MerkleNode, StorageError, UnitsObjectId};
+use units_core_types::{Proof, SlotNumber, StateProof, UnitsObjectProof, VerificationResult, MerkleNode, ProofStorageError, UnitsObjectId};
 use blake3::Hasher;
 use serde::{Deserialize, Serialize};
-
-/// Trait for objects that can have proofs generated
-pub trait ProofableObject: Serialize {
-    /// Get the ID of this object
-    fn id(&self) -> UnitsObjectId;
-}
 
 /// Proof engine using Blake3 hashing
 #[derive(Debug, Clone, Default)]
@@ -25,12 +19,12 @@ impl ProofEngine {
     }
 
     /// Generate a cryptographic proof for a UNITS object
-    pub fn generate_object_proof<T: ProofableObject>(
+    pub fn generate_object_proof<T: Proof>(
         &self,
         object: &T,
         prev_proof: Option<&UnitsObjectProof>,
         transaction_hash: Option<[u8; 32]>,
-    ) -> Result<UnitsObjectProof, StorageError> {
+    ) -> Result<UnitsObjectProof, ProofStorageError> {
         // Get current slot
         let current_slot = crate::current_slot();
         
@@ -56,11 +50,11 @@ impl ProofEngine {
     }
 
     /// Verify that a proof correctly commits to an object's state
-    pub fn verify_object_proof<T: ProofableObject>(
+    pub fn verify_object_proof<T: Proof>(
         &self,
         object: &T,
         proof: &UnitsObjectProof,
-    ) -> Result<bool, StorageError> {
+    ) -> Result<bool, ProofStorageError> {
         // Verify object ID matches
         if object.id() != proof.object_id {
             return Ok(false);
@@ -90,7 +84,7 @@ impl ProofEngine {
         transaction_hashes: &[[u8; 32]],
         prev_state_proof: Option<&StateProof>,
         slot: SlotNumber,
-    ) -> Result<StateProof, StorageError> {
+    ) -> Result<StateProof, ProofStorageError> {
         // Extract object IDs
         let object_ids: Vec<UnitsObjectId> = object_proofs
             .iter()
@@ -105,7 +99,7 @@ impl ProofEngine {
         };
         
         let serialized = bincode::serialize(&proof_data)
-            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            .map_err(|e| ProofStorageError::Serialization(e.to_string()))?;
         
         Ok(StateProof::new(
             slot,
@@ -120,10 +114,10 @@ impl ProofEngine {
         &self,
         state_proof: &StateProof,
         object_proofs: &[(UnitsObjectId, UnitsObjectProof)],
-    ) -> Result<bool, StorageError> {
+    ) -> Result<bool, ProofStorageError> {
         // Deserialize proof data
         let proof_data: StateProofData = bincode::deserialize(&state_proof.proof_data)
-            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            .map_err(|e| ProofStorageError::Serialization(e.to_string()))?;
         
         // Compute expected object root
         let expected_root = self.compute_object_root(object_proofs)?;
@@ -139,10 +133,10 @@ impl ProofEngine {
         transaction_hash: &[u8; 32],
         _transaction_hashes: &[[u8; 32]],
         merkle_path: &[MerkleNode],
-    ) -> Result<bool, StorageError> {
+    ) -> Result<bool, ProofStorageError> {
         // Deserialize proof data
         let proof_data: StateProofData = bincode::deserialize(&state_proof.proof_data)
-            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            .map_err(|e| ProofStorageError::Serialization(e.to_string()))?;
         
         // Verify the merkle path
         let computed_root = self.verify_merkle_path(transaction_hash, merkle_path)?;
@@ -153,9 +147,9 @@ impl ProofEngine {
 
     // Helper methods
 
-    fn hash_object<T: ProofableObject>(&self, object: &T) -> Result<[u8; 32], StorageError> {
+    fn hash_object<T: Proof>(&self, object: &T) -> Result<[u8; 32], ProofStorageError> {
         let serialized = bincode::serialize(object)
-            .map_err(|e| StorageError::Serialization(e.to_string()))?;
+            .map_err(|e| ProofStorageError::Serialization(e.to_string()))?;
         
         let mut hasher = Hasher::new();
         hasher.update(&serialized);
@@ -184,7 +178,7 @@ impl ProofEngine {
         hasher.finalize().as_bytes().to_vec()
     }
 
-    fn compute_object_root(&self, object_proofs: &[(UnitsObjectId, UnitsObjectProof)]) -> Result<[u8; 32], StorageError> {
+    fn compute_object_root(&self, object_proofs: &[(UnitsObjectId, UnitsObjectProof)]) -> Result<[u8; 32], ProofStorageError> {
         let mut hasher = Hasher::new();
         
         // Sort by object ID for deterministic ordering
@@ -227,7 +221,7 @@ impl ProofEngine {
         current_level[0]
     }
 
-    fn verify_merkle_path(&self, leaf: &[u8; 32], path: &[MerkleNode]) -> Result<[u8; 32], StorageError> {
+    fn verify_merkle_path(&self, leaf: &[u8; 32], path: &[MerkleNode]) -> Result<[u8; 32], ProofStorageError> {
         let mut current_hash = *leaf;
         
         for node in path {
@@ -246,7 +240,7 @@ impl ProofEngine {
     }
 
     /// Verify an entire history of proofs for an object
-    pub fn verify_proof_history<T: ProofableObject>(
+    pub fn verify_proof_history<T: Proof>(
         &self,
         object_states: &[(SlotNumber, T)],
         proofs: &[(SlotNumber, UnitsObjectProof)],
@@ -326,7 +320,7 @@ mod tests {
         data: Vec<u8>,
     }
 
-    impl ProofableObject for TestObject {
+    impl Proof for TestObject {
         fn id(&self) -> UnitsObjectId {
             self.id
         }

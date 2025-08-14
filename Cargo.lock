@@ -2375,7 +2375,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
- "units-proofs",
 ]
 
 [[package]]
@@ -2399,6 +2398,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "units-core-types",
 ]
 
 [[package]]

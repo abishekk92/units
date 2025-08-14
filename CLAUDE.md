@@ -20,6 +20,7 @@
 - **Type Safety**: Prefer strong typing with newtype pattern (like UnitsObjectId)
 - **Comments**: Explain "why" not "what" in comments
 - **Traits**: Define behavior through traits for better abstraction
+- Never have unused variables, imports or fields
 
 ## Commit Guidelines
 

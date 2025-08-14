@@ -9,7 +9,8 @@ use std::sync::RwLock;
 use units_core_types::error::StorageError;
 use units_core_types::id::UnitsObjectId;
 use units_core_types::objects::UnitsObject;
-use units_core_types::{SlotNumber, StateProof, UnitsObjectProof, ProofEngine};
+use units_core_types::{SlotNumber, StateProof, UnitsObjectProof};
+use units_proofs::ProofEngine;
 
 /// Simple in-memory object storage implementation with integrated proof generation
 pub struct InMemoryObjectStorage {

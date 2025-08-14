@@ -9,6 +9,7 @@ readme.workspace = true
 keywords = ["units", "proofs", "verification"]
 
 [dependencies]
+units-core-types = { path = "../units-core-types" }
 curve25519-dalek.workspace = true
 sha2.workspace = true
 blake3.workspace = true

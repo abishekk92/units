@@ -139,7 +139,8 @@ mod tests {
         let object_id2 = UnitsObjectId::unique_id_for_tests();
 
         // Create proper UnitsObjectProof instances for testing
-        use units_core_types::{UnitsObjectProof, current_slot};
+        use units_core_types::UnitsObjectProof;
+        use units_proofs::current_slot;
         
         let proof1 = UnitsObjectProof::new(
             object_id1.into(),

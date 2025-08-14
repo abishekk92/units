@@ -18,9 +18,11 @@ pub enum ServiceError {
     ObjectNotFound { object_id: String },
 
     #[error("Transaction failed: {reason}")]
+    #[allow(dead_code)]
     TransactionFailed { reason: String },
 
     #[error("Service unavailable: {message}")]
+    #[allow(dead_code)]
     ServiceUnavailable { message: String },
 
     #[error("Internal error: {0}")]
@@ -40,12 +42,14 @@ impl ServiceError {
         }
     }
 
+    #[allow(dead_code)]
     pub fn transaction_failed(reason: impl Into<String>) -> Self {
         Self::TransactionFailed {
             reason: reason.into(),
         }
     }
 
+    #[allow(dead_code)]
     pub fn service_unavailable(message: impl Into<String>) -> Self {
         Self::ServiceUnavailable {
             message: message.into(),

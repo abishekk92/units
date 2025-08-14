@@ -1,6 +1,6 @@
 use crate::id::UnitsObjectId;
 use serde::{Deserialize, Serialize};
-use units_proofs::engine::ProofableObject;
+use crate::Proof;
 
 /// VM types for executable objects
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,23 +96,9 @@ impl UnitsObject {
     }
 }
 
-impl ProofableObject for UnitsObject {
-    fn id(&self) -> units_proofs::types::UnitsObjectId {
-        // Convert from units-core UnitsObjectId to units-proofs UnitsObjectId
-        units_proofs::types::UnitsObjectId::from_bytes(*self.id)
-    }
-}
-
-// Conversion functions between the two UnitsObjectId types
-impl From<UnitsObjectId> for units_proofs::types::UnitsObjectId {
-    fn from(id: UnitsObjectId) -> Self {
-        units_proofs::types::UnitsObjectId::from_bytes(*id)
-    }
-}
-
-impl From<units_proofs::types::UnitsObjectId> for UnitsObjectId {
-    fn from(id: units_proofs::types::UnitsObjectId) -> Self {
-        UnitsObjectId::from_bytes(*id.bytes())
+impl Proof for UnitsObject {
+    fn id(&self) -> UnitsObjectId {
+        self.id
     }
 }
 
