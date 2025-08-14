@@ -1,0 +1,26 @@
+[package]
+name = "units-storage-impl"
+version.workspace = true
+edition.workspace = true
+description = "Storage implementations for Universal Information Tokenization System (UNITS)"
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["storage", "database", "units", "tokenization"]
+categories = ["database-implementations", "cryptography"]
+
+[dependencies]
+units-core-types.workspace = true
+units-proofs = { path = "../units-proofs" }
+units-storage = { path = "../units-storage" }
+bincode.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[features]
+default = []

@@ -1,14 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
-    "units-core",
-    "units-proofs",
-    "units-storage",
-    "units-storage-impl", 
-    "units-runtime",
-    "units-kernel-sdk",
-    "units-kernel-modules/token",
-    "units-kernel-modules/account",
+    "crates/units-core-types",
+    "crates/units-proofs",
+    "crates/units-storage",
+    "crates/units-storage-impl", 
+    "crates/units-runtime",
+    "crates/units-kernel-sdk",
+    "crates/units-kernel-modules/token",
+    "crates/units-kernel-modules/account",
+    "services/units-core",
 ]
 
 [workspace.package]
@@ -34,9 +35,9 @@ hex = "0.4.3"
 borsh = { version = "1.5", features = ["derive"] }
 
 # Internal crates
-units-core = { path = "./units-core" }
-units-proofs = { path = "./units-proofs" }
-units-storage = { path = "./units-storage" }
-units-storage-impl = { path = "./units-storage-impl" }
-units-runtime = { path = "./units-runtime" }
-units-kernel-sdk = { path = "./units-kernel-sdk" }
+units-core-types = { path = "./crates/units-core-types" }
+units-proofs = { path = "./crates/units-proofs" }
+units-storage = { path = "./crates/units-storage" }
+units-storage-impl = { path = "./crates/units-storage-impl" }
+units-runtime = { path = "./crates/units-runtime" }
+units-kernel-sdk = { path = "./crates/units-kernel-sdk" }

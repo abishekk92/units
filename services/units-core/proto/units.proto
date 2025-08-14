@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package units;
+
+// UNITS Core Service
+service UnitsCore {
+    // Get object by ID
+    rpc GetObject(GetObjectRequest) returns (GetObjectResponse);
+    
+    // Submit transaction
+    rpc SubmitTransaction(SubmitTransactionRequest) returns (SubmitTransactionResponse);
+    
+    // Get transaction by hash
+    rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
+    
+    // Execute transaction
+    rpc ExecuteTransaction(ExecuteTransactionRequest) returns (ExecuteTransactionResponse);
+    
+    // Get current slot
+    rpc GetCurrentSlot(GetCurrentSlotRequest) returns (GetCurrentSlotResponse);
+    
+    // Health check
+    rpc Health(HealthRequest) returns (HealthResponse);
+    
+    // Get version
+    rpc Version(VersionRequest) returns (VersionResponse);
+}
+
+// Request/Response messages
+message GetObjectRequest {
+    string object_id = 1; // hex-encoded object ID
+}
+
+message GetObjectResponse {
+    UnitsObject object = 1;
+}
+
+message SubmitTransactionRequest {
+    Transaction transaction = 1;
+}
+
+message SubmitTransactionResponse {
+    string transaction_hash = 1; // hex-encoded transaction hash
+}
+
+message GetTransactionRequest {
+    string transaction_hash = 1; // hex-encoded transaction hash
+}
+
+message GetTransactionResponse {
+    Transaction transaction = 1;
+}
+
+message ExecuteTransactionRequest {
+    string transaction_hash = 1; // hex-encoded transaction hash
+}
+
+message ExecuteTransactionResponse {
+    TransactionReceipt receipt = 1;
+}
+
+message GetCurrentSlotRequest {}
+
+message GetCurrentSlotResponse {
+    uint64 slot = 1;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+    string status = 1;
+    uint64 slot = 2;
+    uint64 object_count = 3;
+    uint64 pending_transactions = 4;
+}
+
+message VersionRequest {}
+
+message VersionResponse {
+    string version = 1;
+    string commit = 2;
+    string build_time = 3;
+}
+
+// Core data types
+message UnitsObject {
+    string id = 1; // hex-encoded object ID
+    string controller_id = 2; // hex-encoded controller ID
+    ObjectType object_type = 3;
+    bytes data = 4;
+}
+
+message ObjectType {
+    oneof type {
+        DataType data = 1;
+        ExecutableType executable = 2;
+    }
+}
+
+message DataType {}
+
+message ExecutableType {
+    VMType vm_type = 1;
+}
+
+enum VMType {
+    VM_TYPE_RISC_V = 0;
+    VM_TYPE_WASM = 1;
+    VM_TYPE_EBPF = 2;
+}
+
+message Transaction {
+    repeated Instruction instructions = 1;
+}
+
+message Instruction {
+    string controller_id = 1; // hex-encoded controller ID
+    string target_function = 2;
+    repeated string target_objects = 3; // hex-encoded object IDs
+    bytes params = 4;
+}
+
+message TransactionReceipt {
+    string transaction_hash = 1; // hex-encoded transaction hash
+    uint64 slot = 2;
+    uint64 timestamp = 3;
+    bool success = 4;
+    repeated TransactionEffect effects = 5;
+    repeated ObjectProof proofs = 6;
+}
+
+message TransactionEffect {
+    string transaction_hash = 1; // hex-encoded transaction hash
+    string object_id = 2; // hex-encoded object ID
+    UnitsObject before_image = 3; // optional - null for creation
+    UnitsObject after_image = 4; // optional - null for deletion
+}
+
+message ObjectProof {
+    string object_id = 1; // hex-encoded object ID
+    bytes object_hash = 2;
+    uint64 slot = 3;
+    bytes data = 4;
+    bytes before_proof = 5; // optional
+    bytes after_proof = 6; // optional
+}

@@ -1,0 +1,28 @@
+[package]
+name = "units-runtime"
+version.workspace = true
+edition.workspace = true
+description = "Runtime and verification for Universal Information Tokenization System (UNITS)"
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords = ["units", "tokenization", "runtime", "verification"]
+
+[dependencies]
+units-core-types.workspace = true
+units-proofs = { path = "../units-proofs" }
+units-storage.workspace = true
+units-storage-impl.workspace = true
+bincode.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+log.workspace = true
+rvsim = "0.2.2"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[features]
+default = []
