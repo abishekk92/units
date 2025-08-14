@@ -1,27 +1,20 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use units_core_types::id::UnitsObjectId;
 use units_core_types::objects::UnitsObject;
-use units_core_types::transaction::{Transaction, TransactionReceipt};
-use units_core_types::ObjectStorage;
+use units_core_types::transaction::{Transaction, TransactionReceipt, TransactionHash};
+use units_core_types::{Runtime, SlotNumber, ObjectStorage};
 use units_storage_impl::ConsolidatedUnitsStorage;
-use units_core_types::Runtime;
 
 use crate::config::Config;
-use crate::error::{ServiceError, ServiceResult};
+use crate::error::ServiceResult;
+use crate::services::{MinimalServiceFactory, MinimalServiceContainer};
 
 /// Core UNITS service that handles business logic
 #[derive(Clone)]
 pub struct UnitsService {
-    storage: Arc<ConsolidatedUnitsStorage>,
-    #[allow(dead_code)]
-    runtime: Arc<dyn Runtime + Send + Sync>,
-    #[allow(dead_code)]
+    services: Arc<MinimalServiceContainer>,
     config: Config,
-    // In-memory transaction pool for demonstration
-    transaction_pool: Arc<RwLock<HashMap<[u8; 32], Transaction>>>,
 }
 
 impl UnitsService {
@@ -30,99 +23,105 @@ impl UnitsService {
         runtime: Arc<dyn Runtime + Send + Sync>,
         config: Config,
     ) -> Self {
-        Self {
-            storage,
+        // Create all services using the minimal factory
+        let services = MinimalServiceFactory::create_minimal_services(
             runtime,
+            storage,
+        ).expect("Failed to create services");
+        
+        Self {
+            services: Arc::new(services),
             config,
-            transaction_pool: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+    
+    /// Start all services
+    pub async fn start(&self) -> ServiceResult<()> {
+        // Simple implementation - no-op for now
+        Ok(())
     }
 
     /// Get object by ID
     pub async fn get_object(&self, object_id: &UnitsObjectId) -> ServiceResult<UnitsObject> {
-        let object = self
-            .storage
-            .inner()
-            .objects
+        use units_core_types::UnitsStorage;
+        self.services.storage
+            .objects()
             .get(object_id)
-            .map_err(ServiceError::Storage)?
-            .ok_or_else(|| ServiceError::object_not_found(hex::encode(object_id.bytes())))?;
-        
-        Ok(object)
+            .map_err(crate::error::ServiceError::Storage)?
+            .ok_or_else(|| crate::error::ServiceError::object_not_found(hex::encode(object_id.bytes())))
     }
 
     /// Submit transaction to the transaction pool
-    pub async fn submit_transaction(&self, transaction: Transaction) -> ServiceResult<[u8; 32]> {
-        // Simple hash for demo - in real implementation would use proper transaction hashing
-        let tx_hash = [0u8; 32]; // mock hash
-        
-        // Basic validation
-        if transaction.instructions.is_empty() {
-            return Err(ServiceError::invalid_request("Transaction has no instructions"));
-        }
-
-        // Add to transaction pool
-        {
-            let mut pool = self.transaction_pool.write().await;
-            pool.insert(tx_hash, transaction);
-        }
-
-        Ok(tx_hash)
+    pub async fn submit_transaction(&self, transaction: Transaction) -> ServiceResult<TransactionHash> {
+        // Simple implementation - just return the hash
+        Ok(transaction.hash)
     }
 
     /// Get transaction from pool
-    pub async fn get_transaction(&self, tx_hash: &[u8; 32]) -> ServiceResult<Transaction> {
-        let pool = self.transaction_pool.read().await;
-        pool.get(tx_hash)
-            .cloned()
-            .ok_or_else(|| ServiceError::object_not_found(hex::encode(tx_hash)))
+    pub async fn get_transaction(&self, _tx_hash: &TransactionHash) -> ServiceResult<Transaction> {
+        Err(crate::error::ServiceError::invalid_request("Not implemented in simple version"))
     }
 
-    /// Execute a transaction (simplified - normally would be handled by consensus)
-    pub async fn execute_transaction(&self, tx_hash: &[u8; 32]) -> ServiceResult<TransactionReceipt> {
-        let _transaction = self.get_transaction(tx_hash).await?;
-        
-        // For now, just return a mock receipt
-        // In a real implementation, this would:
-        // 1. Execute transaction through runtime
-        // 2. Apply effects to storage
-        // 3. Generate proofs
-        // 4. Store receipt
-        let receipt = TransactionReceipt {
-            transaction_hash: *tx_hash,
-            slot: 1, // mock slot
-            timestamp: chrono::Utc::now().timestamp() as u64,
-            success: true,
-            effects: vec![], // would contain actual effects
-            object_proofs: std::collections::HashMap::new(),  // would contain actual proofs
-            commitment_level: units_core_types::transaction::CommitmentLevel::Committed,
-            error_message: None,
-        };
-
-        Ok(receipt)
+    /// Get transaction receipt
+    pub async fn get_transaction_receipt(&self, _tx_hash: &TransactionHash) -> ServiceResult<TransactionReceipt> {
+        Err(crate::error::ServiceError::invalid_request("Not implemented in simple version"))
     }
 
     /// Get current slot number
-    pub async fn get_current_slot(&self) -> ServiceResult<u64> {
-        // Mock implementation - would query actual slot from consensus
-        Ok(1)
+    pub async fn get_current_slot(&self) -> ServiceResult<SlotNumber> {
+        Ok(0) // Simple implementation
     }
 
-    /// Get object count
-    pub async fn get_object_count(&self) -> ServiceResult<u64> {
-        // This would require adding a count method to storage
-        // For now, return mock value
-        Ok(0)
+    /// Get service statistics
+    pub async fn get_service_stats(&self) -> ServiceResult<ServiceStats> {
+        Ok(ServiceStats {
+            current_slot: 0,
+            pending_transactions: 0,
+            cached_objects: 0,
+            latest_proven_slot: 0,
+        })
     }
 
     /// Health check
     pub async fn health_check(&self) -> ServiceResult<HealthStatus> {
+        let health = self.services.health_check().await?;
+        
         Ok(HealthStatus {
-            status: "healthy".to_string(),
-            slot: self.get_current_slot().await?,
-            object_count: self.get_object_count().await?,
-            pending_transactions: self.transaction_pool.read().await.len() as u64,
+            status: health.status,
+            slot: 0,
+            object_count: 0,
+            pending_transactions: 0,
         })
+    }
+    
+    /// Advance to next slot manually
+    pub async fn advance_slot(&self) -> ServiceResult<SlotNumber> {
+        Ok(1) // Simple implementation
+    }
+    
+    /// Create a new object
+    pub async fn create_object(
+        &self,
+        id: UnitsObjectId,
+        object_type: units_core_types::objects::ObjectType,
+        data: Vec<u8>,
+        controller: Option<UnitsObjectId>,
+        _vm_type: Option<units_core_types::objects::VMType>,
+    ) -> ServiceResult<UnitsObject> {
+        let controller_id = controller.unwrap_or(id);
+        let object = match object_type {
+            units_core_types::objects::ObjectType::Data => 
+                units_core_types::objects::UnitsObject::new_data(id, controller_id, data),
+            units_core_types::objects::ObjectType::Executable(vm_type) => 
+                units_core_types::objects::UnitsObject::new_executable(id, controller_id, vm_type, data),
+        };
+        
+        // Store in storage
+        use units_core_types::UnitsStorage;
+        let _proof = self.services.storage.objects().set(&object, None)
+            .map_err(crate::error::ServiceError::Storage)?;
+        
+        Ok(object)
     }
 }
 
@@ -132,4 +131,12 @@ pub struct HealthStatus {
     pub slot: u64,
     pub object_count: u64,
     pub pending_transactions: u64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct ServiceStats {
+    pub current_slot: SlotNumber,
+    pub pending_transactions: u64,
+    pub cached_objects: u64,
+    pub latest_proven_slot: SlotNumber,
 }

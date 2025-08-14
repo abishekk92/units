@@ -9,6 +9,7 @@ mod error;
 mod json_rpc;
 mod server;
 mod service;
+mod services;
 
 use config::Config;
 use server::UnitsServer;

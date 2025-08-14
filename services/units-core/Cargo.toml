@@ -26,6 +26,10 @@ serde_json.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 
+# Additional dependencies
+bincode.workspace = true
+sha2.workspace = true
+
 # Hex encoding
 hex.workspace = true
 
@@ -45,6 +49,14 @@ chrono = { version = "0.4", features = ["serde"] }
 
 [build-dependencies]
 chrono = "0.4"
+
+[[bin]]
+name = "units-core-service"
+path = "src/main.rs"
+
+[lib]
+name = "units_core_service"
+path = "src/lib.rs"
 
 [features]
 default = []

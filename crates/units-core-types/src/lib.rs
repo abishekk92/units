@@ -11,6 +11,7 @@ pub mod runtime;
 pub mod vm_executor;
 pub mod transaction_manager;
 pub mod verification;
+pub mod units_storage_trait;
 
 // Re-export the main types for convenience
 pub use constants::{
@@ -73,8 +74,11 @@ pub use storage::{
     WriteAheadLog,
     ReceiptStorage,
     LockManager,
-    UnitsStorage,
+    UnitsStorageStruct,
 };
+
+// Re-export unified storage trait
+pub use units_storage_trait::UnitsStorage;
 
 // Re-export runtime traits
 pub use runtime::Runtime;

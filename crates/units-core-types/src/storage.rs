@@ -289,13 +289,13 @@ pub trait LockManager: Send + Sync {
 /// Complete storage implementation combining all capabilities
 /// 
 /// This demonstrates composition over inheritance
-pub struct UnitsStorage<O, P, W> {
+pub struct UnitsStorageStruct<O, P, W> {
     pub objects: O,
     pub proofs: P,
     pub wal: Option<W>,
 }
 
-impl<O, P, W> UnitsStorage<O, P, W>
+impl<O, P, W> UnitsStorageStruct<O, P, W>
 where
     O: ObjectStorage,
     P: ProofStorage,

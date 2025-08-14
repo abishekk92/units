@@ -165,7 +165,7 @@ impl UnitsJsonRpcApiServer for JsonRpcServerImpl {
     async fn execute_transaction(&self, tx_hash: String) -> Result<TransactionReceipt, ErrorObject<'static>> {
         let parsed_hash = Self::parse_tx_hash(&tx_hash)?;
         self.service
-            .execute_transaction(&parsed_hash)
+            .get_transaction_receipt(&parsed_hash)
             .await
             .map_err(Self::map_service_error)
     }

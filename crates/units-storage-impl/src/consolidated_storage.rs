@@ -3,7 +3,7 @@
 //! This module provides a working implementation of the consolidated storage
 //! architecture with in-memory implementations for development and testing.
 
-use units_core_types::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog};
+use units_core_types::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog, UnitsStorage as UnitsStorageTrait, ReceiptStorage, LockManager};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use units_core_types::error::StorageError;
@@ -289,33 +289,128 @@ impl WriteAheadLog for NoOpWriteAheadLog {
 
 /// Complete consolidated storage implementation using composition
 pub struct ConsolidatedUnitsStorage {
-    inner: units_core_types::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog>,
+    objects: InMemoryObjectStorage,
+    proofs: InMemoryProofStorage,
+    wal: Option<NoOpWriteAheadLog>,
+    receipts: InMemoryReceiptStorage,
+    locks: InMemoryLockManager,
 }
 
 impl ConsolidatedUnitsStorage {
     pub fn create() -> Self {
         Self {
-            inner: units_core_types::UnitsStorage::new(
-                InMemoryObjectStorage::new(),
-                InMemoryProofStorage::new(),
-                Some(NoOpWriteAheadLog),
-            )
+            objects: InMemoryObjectStorage::new(),
+            proofs: InMemoryProofStorage::new(),
+            wal: Some(NoOpWriteAheadLog),
+            receipts: InMemoryReceiptStorage::new(),
+            locks: InMemoryLockManager::new(),
         }
     }
     
-    /// Get access to the inner storage
-    pub fn inner(&self) -> &units_core_types::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
-        &self.inner
+    /// Get access to object storage
+    pub fn inner(&self) -> &InMemoryObjectStorage {
+        &self.objects
     }
     
-    /// Get mutable access to the inner storage
-    pub fn inner_mut(&mut self) -> &mut units_core_types::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
-        &mut self.inner
+    /// Create in-memory storage for testing
+    pub fn new_in_memory() -> Self {
+        Self::create()
     }
 }
 
 impl Default for ConsolidatedUnitsStorage {
     fn default() -> Self {
         Self::create()
+    }
+}
+
+// Import additional types needed for trait implementation
+use crate::receipt_storage::InMemoryReceiptStorage;
+
+/// Wrapper to implement UnitsStorage trait
+pub struct UnitsStorageImpl {
+    objects: InMemoryObjectStorage,
+    proofs: InMemoryProofStorage,
+    wal: Option<NoOpWriteAheadLog>,
+    receipts: InMemoryReceiptStorage,
+    locks: InMemoryLockManager,
+}
+
+impl UnitsStorageImpl {
+    pub fn new() -> Self {
+        Self {
+            objects: InMemoryObjectStorage::new(),
+            proofs: InMemoryProofStorage::new(),
+            wal: Some(NoOpWriteAheadLog),
+            receipts: InMemoryReceiptStorage::new(),
+            locks: InMemoryLockManager::new(),
+        }
+    }
+}
+
+impl UnitsStorageTrait for UnitsStorageImpl {
+    type Objects = InMemoryObjectStorage;
+    type Historical = InMemoryObjectStorage;
+    type Proofs = InMemoryProofStorage;
+    type WAL = NoOpWriteAheadLog;
+    type Receipts = InMemoryReceiptStorage;
+    type Locks = InMemoryLockManager;
+    
+    fn objects(&self) -> &Self::Objects {
+        &self.objects
+    }
+    
+    fn historical(&self) -> &Self::Historical {
+        &self.objects
+    }
+    
+    fn proofs(&self) -> &Self::Proofs {
+        &self.proofs
+    }
+    
+    fn wal(&self) -> Option<&Self::WAL> {
+        self.wal.as_ref()
+    }
+    
+    fn receipts(&self) -> &Self::Receipts {
+        &self.receipts
+    }
+    
+    fn locks(&self) -> &Self::Locks {
+        &self.locks
+    }
+}
+
+// Also implement for ConsolidatedUnitsStorage
+impl UnitsStorageTrait for ConsolidatedUnitsStorage {
+    type Objects = InMemoryObjectStorage;
+    type Historical = InMemoryObjectStorage;
+    type Proofs = InMemoryProofStorage;
+    type WAL = NoOpWriteAheadLog;
+    type Receipts = InMemoryReceiptStorage;
+    type Locks = InMemoryLockManager;
+    
+    fn objects(&self) -> &Self::Objects {
+        &self.objects
+    }
+    
+    fn historical(&self) -> &Self::Historical {
+        &self.objects
+    }
+    
+    fn proofs(&self) -> &Self::Proofs {
+        &self.proofs
+    }
+    
+    fn wal(&self) -> Option<&Self::WAL> {
+        self.wal.as_ref()
+    }
+    
+    fn receipts(&self) -> &Self::Receipts {
+        &self.receipts
+    }
+    
+    fn locks(&self) -> &Self::Locks {
+        &self.locks
     }
 }
