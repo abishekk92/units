@@ -3,7 +3,6 @@ pub mod error;
 pub mod id;
 pub mod locks;
 pub mod objects;
-pub mod proofs;
 pub mod transaction;
 pub mod scheduler;
 
@@ -50,13 +49,14 @@ pub use scheduler::{
     BasicConflictChecker,
 };
 
-// Re-export proofs types
-pub use proofs::{
+// Re-export proofs types directly from units-proofs
+pub use units_proofs::{
     current_slot,
-    ProofEngine,
     SlotNumber,
     StateProof,
     UnitsObjectProof,
     VerificationResult,
     MerkleNode,
+    ProofEngine,
 };
+

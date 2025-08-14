@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 units-core = { workspace = true }
+units-proofs = { path = "../units-proofs" }
 
 # Minimal dependencies for trait definitions
 serde = { workspace = true }

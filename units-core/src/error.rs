@@ -146,3 +146,15 @@ impl From<&str> for StorageError {
         StorageError::Other(err.to_string())
     }
 }
+
+impl From<units_proofs::types::StorageError> for StorageError {
+    fn from(err: units_proofs::types::StorageError) -> Self {
+        match err {
+            units_proofs::types::StorageError::Serialization(msg) => StorageError::Serialization(msg),
+            units_proofs::types::StorageError::ProofVerification => StorageError::ProofVerification("Proof verification failed".to_string()),
+            units_proofs::types::StorageError::ProofNotFound => StorageError::NotFound("Proof not found".to_string()),
+            units_proofs::types::StorageError::ProofChainInvalid(msg) => StorageError::ProofVerification(msg),
+            units_proofs::types::StorageError::ProofMissingData(msg) => StorageError::Other(format!("Proof missing data: {}", msg)),
+        }
+    }
+}

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::transaction::TransactionReceipt;
-use units_core::proofs::SlotNumber;
+use units_core::SlotNumber;
 use units_storage::ReceiptStorage;
 
 /// Simple in-memory receipt storage for testing

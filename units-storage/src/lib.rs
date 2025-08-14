@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof};
+use units_core::{SlotNumber, StateProof, UnitsObjectProof};
 use units_core::transaction::TransactionReceipt;
 
 //==============================================================================

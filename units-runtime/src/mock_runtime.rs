@@ -6,7 +6,7 @@ use units_core::objects::{UnitsObject, VMType};
 use units_core::transaction::{
     ConflictResult, Transaction, TransactionHash, TransactionReceipt,
 };
-use units_core::proofs::SlotNumber;
+use units_core::SlotNumber;
 
 use crate::runtime::Runtime;
 use crate::vm_executor::VMExecutor;

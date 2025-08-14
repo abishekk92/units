@@ -606,6 +606,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "units-proofs",
 ]
 
 [[package]]
@@ -613,6 +614,22 @@ name = "units-kernel-sdk"
 version = "0.1.0"
 dependencies = [
  "borsh",
+]
+
+[[package]]
+name = "units-proofs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "blake3",
+ "curve25519-dalek",
+ "hex",
+ "log",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]
@@ -627,6 +644,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "units-core",
+ "units-proofs",
  "units-storage",
  "units-storage-impl",
 ]
@@ -638,6 +656,7 @@ dependencies = [
  "serde",
  "thiserror",
  "units-core",
+ "units-proofs",
 ]
 
 [[package]]
@@ -650,6 +669,7 @@ dependencies = [
  "serde",
  "thiserror",
  "units-core",
+ "units-proofs",
  "units-storage",
 ]
 

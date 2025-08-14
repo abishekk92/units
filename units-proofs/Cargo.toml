@@ -1,15 +1,14 @@
 [package]
-name = "units-core"
+name = "units-proofs"
 version.workspace = true
 edition.workspace = true
-description = "Core components for Universal Information Tokenization System (UNITS)"
+description = "Proof generation and verification for Universal Information Tokenization System (UNITS)"
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
-keywords = ["units", "tokenization", "core"]
+keywords = ["units", "proofs", "verification"]
 
 [dependencies]
-units-proofs = { path = "../units-proofs" }
 curve25519-dalek.workspace = true
 sha2.workspace = true
 blake3.workspace = true

@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use units_core::error::StorageError;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{StateProof, UnitsObjectProof, SlotNumber};
+use units_core::{StateProof, UnitsObjectProof, SlotNumber};
 
 /// WAL entry for object updates
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,7 +204,7 @@ mod tests {
         let current_slot = 1234u64;
 
         UnitsObjectProof {
-            object_id,
+            object_id: object_id.into(),
             slot: current_slot,
             object_hash: [0u8; 32],
             prev_proof_hash: None,

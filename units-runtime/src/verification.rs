@@ -7,8 +7,7 @@ use std::collections::HashMap;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
 
-use units_core::proofs::UnitsObjectProof;
-use units_core::proofs::{ProofEngine, SlotNumber, StateProof, VerificationResult};
+use units_core::{UnitsObjectProof, ProofEngine, SlotNumber, StateProof, VerificationResult};
 
 use units_core::transaction::TransactionReceipt;
 
@@ -111,9 +110,21 @@ impl ProofVerifier {
         object_proofs: &HashMap<UnitsObjectId, UnitsObjectProof>,
     ) -> VerificationResult {
         // Convert HashMap to the format expected by the proof engine
-        let object_proof_pairs: Vec<(UnitsObjectId, UnitsObjectProof)> = object_proofs
+        let object_proof_pairs: Vec<(units_proofs::types::UnitsObjectId, units_proofs::types::UnitsObjectProof)> = object_proofs
             .iter()
-            .map(|(id, proof)| (*id, proof.clone()))
+            .map(|(id, proof)| {
+                (
+                    (*id).into(),
+                    units_proofs::types::UnitsObjectProof::new(
+                        proof.object_id.into(),
+                        proof.object_hash,
+                        proof.slot,
+                        proof.proof_data.clone(),
+                        None,
+                        proof.transaction_hash,
+                    )
+                )
+            })
             .collect();
 
         // Delegate to the proof engine for state proof verification
@@ -203,7 +214,7 @@ pub fn detect_double_spend(
 mod tests {
     use super::*;
     use units_core::id::UnitsObjectId;
-    use units_core::proofs::ProofEngine;
+    use units_core::ProofEngine;
 
     fn create_test_object() -> UnitsObject {
         UnitsObject::new_data(

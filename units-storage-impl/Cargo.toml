@@ -11,6 +11,7 @@ categories = ["database-implementations", "cryptography"]
 
 [dependencies]
 units-core.workspace = true
+units-proofs = { path = "../units-proofs" }
 units-storage = { path = "../units-storage" }
 bincode.workspace = true
 serde.workspace = true

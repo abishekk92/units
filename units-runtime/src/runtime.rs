@@ -139,10 +139,10 @@ mod tests {
         let object_id2 = UnitsObjectId::unique_id_for_tests();
 
         // Create proper UnitsObjectProof instances for testing
-        use units_core::proofs::{UnitsObjectProof, current_slot};
+        use units_core::{UnitsObjectProof, current_slot};
         
         let proof1 = UnitsObjectProof::new(
-            object_id1,
+            object_id1.into(),
             [1u8; 32],
             current_slot(),
             vec![1, 2, 3],
@@ -151,7 +151,7 @@ mod tests {
         );
         
         let proof2 = UnitsObjectProof::new(
-            object_id2,
+            object_id2.into(),
             [2u8; 32],
             current_slot(),
             vec![4, 5, 6],

@@ -4,12 +4,15 @@
 //! 1. Cryptographically prove object state at any slot
 //! 2. Cryptographically prove transaction inclusion in a slot
 
-use crate::error::StorageError;
-use crate::id::UnitsObjectId;
-use crate::objects::UnitsObject;
-use crate::proofs::{SlotNumber, StateProof, UnitsObjectProof};
+use crate::types::{SlotNumber, StateProof, UnitsObjectProof, VerificationResult, MerkleNode, StorageError, UnitsObjectId};
 use blake3::Hasher;
 use serde::{Deserialize, Serialize};
+
+/// Trait for objects that can have proofs generated
+pub trait ProofableObject: Serialize {
+    /// Get the ID of this object
+    fn id(&self) -> UnitsObjectId;
+}
 
 /// Proof engine using Blake3 hashing
 #[derive(Debug, Clone, Default)]
@@ -22,14 +25,14 @@ impl ProofEngine {
     }
 
     /// Generate a cryptographic proof for a UNITS object
-    pub fn generate_object_proof(
+    pub fn generate_object_proof<T: ProofableObject>(
         &self,
-        object: &UnitsObject,
+        object: &T,
         prev_proof: Option<&UnitsObjectProof>,
         transaction_hash: Option<[u8; 32]>,
     ) -> Result<UnitsObjectProof, StorageError> {
         // Get current slot
-        let current_slot = crate::proofs::current_slot();
+        let current_slot = crate::current_slot();
         
         // Compute object hash
         let object_hash = self.hash_object(object)?;
@@ -43,7 +46,7 @@ impl ProofEngine {
         );
         
         Ok(UnitsObjectProof::new(
-            *object.id(),
+            object.id(),
             object_hash,
             current_slot,
             proof_data,
@@ -53,13 +56,13 @@ impl ProofEngine {
     }
 
     /// Verify that a proof correctly commits to an object's state
-    pub fn verify_object_proof(
+    pub fn verify_object_proof<T: ProofableObject>(
         &self,
-        object: &UnitsObject,
+        object: &T,
         proof: &UnitsObjectProof,
     ) -> Result<bool, StorageError> {
         // Verify object ID matches
-        if object.id() != &proof.object_id {
+        if object.id() != proof.object_id {
             return Ok(false);
         }
         
@@ -150,7 +153,7 @@ impl ProofEngine {
 
     // Helper methods
 
-    fn hash_object(&self, object: &UnitsObject) -> Result<[u8; 32], StorageError> {
+    fn hash_object<T: ProofableObject>(&self, object: &T) -> Result<[u8; 32], StorageError> {
         let serialized = bincode::serialize(object)
             .map_err(|e| StorageError::Serialization(e.to_string()))?;
         
@@ -243,13 +246,11 @@ impl ProofEngine {
     }
 
     /// Verify an entire history of proofs for an object
-    pub fn verify_proof_history(
+    pub fn verify_proof_history<T: ProofableObject>(
         &self,
-        object_states: &[(SlotNumber, UnitsObject)],
+        object_states: &[(SlotNumber, T)],
         proofs: &[(SlotNumber, UnitsObjectProof)],
-    ) -> crate::proofs::VerificationResult {
-        use crate::proofs::VerificationResult;
-        
+    ) -> VerificationResult {
         if object_states.is_empty() || proofs.is_empty() {
             return VerificationResult::MissingData(
                 "No object states or proofs provided".to_string(),
@@ -306,13 +307,6 @@ impl ProofEngine {
     }
 }
 
-/// Merkle tree node for inclusion proofs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleNode {
-    pub hash: [u8; 32],
-    pub is_left: bool,
-}
-
 /// State proof data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct StateProofData {
@@ -324,8 +318,19 @@ struct StateProofData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::objects::UnitsObject;
-    use crate::id::UnitsObjectId;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct TestObject {
+        id: UnitsObjectId,
+        data: Vec<u8>,
+    }
+
+    impl ProofableObject for TestObject {
+        fn id(&self) -> UnitsObjectId {
+            self.id
+        }
+    }
 
     #[test]
     fn test_object_proof_generation_and_verification() {
@@ -333,7 +338,10 @@ mod tests {
         
         // Create test object
         let object_id = UnitsObjectId::from_bytes([1u8; 32]);
-        let object = UnitsObject::new_data(object_id, object_id, vec![1, 2, 3]);
+        let object = TestObject {
+            id: object_id,
+            data: vec![1, 2, 3],
+        };
         
         // Generate proof
         let proof = engine.generate_object_proof(&object, None, None).unwrap();
@@ -342,8 +350,10 @@ mod tests {
         assert!(engine.verify_object_proof(&object, &proof).unwrap());
         
         // Verify with wrong object fails
-        let wrong_id = UnitsObjectId::from_bytes([2u8; 32]);
-        let wrong_object = UnitsObject::new_data(wrong_id, wrong_id, vec![4, 5, 6]);
+        let wrong_object = TestObject {
+            id: UnitsObjectId::from_bytes([2u8; 32]),
+            data: vec![4, 5, 6],
+        };
         assert!(!engine.verify_object_proof(&wrong_object, &proof).unwrap());
     }
 
@@ -352,13 +362,16 @@ mod tests {
         let engine = ProofEngine::new();
         
         let object_id = UnitsObjectId::from_bytes([1u8; 32]);
-        let mut object = UnitsObject::new_data(object_id, object_id, vec![1, 2, 3]);
+        let mut object = TestObject {
+            id: object_id,
+            data: vec![1, 2, 3],
+        };
         
         // Generate first proof
         let proof1 = engine.generate_object_proof(&object, None, None).unwrap();
         
         // Modify object and generate second proof
-        object = UnitsObject::new_data(object_id, object_id, vec![4, 5, 6]);
+        object.data = vec![4, 5, 6];
         let proof2 = engine.generate_object_proof(&object, Some(&proof1), None).unwrap();
         
         // Verify chain

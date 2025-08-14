@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use units_core::error::{RuntimeError, StorageError};
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{SlotNumber, UnitsObjectProof};
+use units_core::{SlotNumber, UnitsObjectProof};
 use units_core::transaction::{
     CommitmentLevel, ConflictResult, Transaction, TransactionEffect, 
     TransactionHash, TransactionReceipt

@@ -1,8 +1,35 @@
 use serde::{Deserialize, Serialize};
-use crate::id::UnitsObjectId;
 
 /// Slot number type (represents points in time)
 pub type SlotNumber = u64;
+
+/// Object ID type for proofs (32-byte identifier)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UnitsObjectId([u8; 32]);
+
+impl UnitsObjectId {
+    /// Create a new UnitsObjectId from bytes
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+    
+    /// Get the bytes of this ID
+    pub fn bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl std::cmp::Ord for UnitsObjectId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl std::cmp::PartialOrd for UnitsObjectId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 /// A cryptographic proof for a UNITS object
 ///
@@ -159,5 +186,24 @@ pub enum VerificationResult {
     MissingData(String),
 }
 
-// Proof data structures are defined above
-// The actual proof generation and verification logic is in simple_proof.rs
+/// Merkle tree node for inclusion proofs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerkleNode {
+    pub hash: [u8; 32],
+    pub is_left: bool,
+}
+
+/// Storage error type for proof operations
+#[derive(Debug, thiserror::Error)]
+pub enum StorageError {
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    #[error("Proof verification failed")]
+    ProofVerification,
+    #[error("Proof not found")]
+    ProofNotFound,
+    #[error("Proof chain invalid: {0}")]
+    ProofChainInvalid(String),
+    #[error("Missing proof data: {0}")]
+    ProofMissingData(String),
+}

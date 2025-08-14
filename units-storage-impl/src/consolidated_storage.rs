@@ -9,7 +9,7 @@ use std::sync::RwLock;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof, ProofEngine};
+use units_core::{SlotNumber, StateProof, UnitsObjectProof, ProofEngine};
 
 /// Simple in-memory object storage implementation with integrated proof generation
 pub struct InMemoryObjectStorage {
@@ -195,7 +195,7 @@ impl ProofStorage for InMemoryProofStorage {
     fn store_object_proof(&self, proof: &UnitsObjectProof) -> Result<(), StorageError> {
         let mut proofs = self.object_proofs.write().unwrap();
         proofs
-            .entry(proof.object_id)
+            .entry(proof.object_id.into())
             .or_insert_with(Vec::new)
             .push((proof.slot, proof.clone()));
         Ok(())

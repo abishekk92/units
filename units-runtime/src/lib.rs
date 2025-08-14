@@ -30,7 +30,7 @@ pub use mock_runtime::MockRuntime;
 
 
 // Re-export VerificationResult from units-proofs
-pub use units_core::proofs::VerificationResult;
+pub use units_core::VerificationResult;
 
 // Re-export VM executor types
 pub use vm_executor::{ExecutionContext, ObjectEffect, VMExecutionError, VMExecutor};
