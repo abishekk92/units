@@ -13,7 +13,10 @@ UNITS implements a unified object architecture where **everything is an object**
 ### Core Components
 
 - **units-core** - Fundamental types and data structures
-  - `UnitsObjectId` - 32-byte cryptographic object identifiers
+  - `UnitsObjectId` - 32-byte deterministic SHA-256 based cryptographic identifiers
+    - **Why not UUID?** Provides dual-purpose addressing (off-curve objects + Ed25519 keys), deterministic reproducibility for distributed consensus, cryptographic collision resistance, and seamless proof system integration
+    - Uses domain separation (`"UNITS_Object"`) and bump mechanism for off-curve guarantee
+    - Essential for security: prevents confusion between object IDs and signing keys
   - `UnitsObject` - Unified object model with controller-based access control
   - `TransactionEffect`/`ObjectEffect` - State transition tracking
   - System constants (`SYSTEM_LOADER_ID`, `TOKEN_CONTROLLER_ID`)
@@ -163,6 +166,27 @@ let historical_object = storage.inner().objects.get_at_slot(&object_id, slot)?;
 ```
 
 ## Architecture Highlights
+
+### Cryptographic Object Addressing
+
+UnitsObjectId uses deterministic SHA-256 hashing rather than UUIDs for critical architectural reasons:
+
+- **Deterministic**: Same seeds always produce same ID (essential for distributed consensus)
+- **Dual-Purpose**: Handles both off-curve object IDs and Ed25519 public keys in unified 32-byte format
+- **Security**: Domain separation prevents cross-protocol attacks, off-curve requirement prevents key confusion
+- **Proof Integration**: Fixed 32-byte format integrates seamlessly with cryptographic state commitments
+- **Collision Resistance**: SHA-256 provides 256-bit security vs UUID's weaker guarantees
+
+```rust
+// Deterministic object creation
+let (object_id, bump) = UnitsObjectId::find_uid(&[account_key, nonce]);
+
+// Off-curve guarantee for security
+assert!(UnitsObjectId::is_off_curve(&object_id.bytes()));
+
+// Can also represent Ed25519 keys when on-curve
+let pubkey = PublicKey::from_units_object_id(&account_id)?;
+```
 
 ### Composition Over Inheritance
 Storage traits are focused and composable:

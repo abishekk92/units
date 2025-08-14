@@ -14,6 +14,111 @@ This document specifies the unified object architecture for UNITS storage, where
 
 ## Object Model
 
+### UnitsObjectId: Cryptographic Addressing System
+
+UnitsObjectId uses a sophisticated deterministic hashing system designed for both security and functionality in the UNITS architecture.
+
+#### Implementation Details
+
+**Location**: `units-core/src/id.rs`
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UnitsObjectId([u8; 32]);
+```
+
+#### Deterministic Hashing Technique
+
+UNITS uses **SHA-256 based deterministic hashing** with critical security properties:
+
+**Domain Separation**:
+```rust
+pub fn create_object_id(seeds: &[&[u8]], bump: u8) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(b"UNITS_Object");  // Domain separator prevents cross-protocol attacks
+    for seed in seeds { hasher.update(seed); }
+    hasher.update(&[bump]);          // Bump for off-curve requirement
+    hasher.finalize().into()
+}
+```
+
+**Off-Curve Security Requirement**:
+```rust
+/// UnitsObjectIds must NOT be valid Ed25519 curve points
+pub fn is_off_curve(bytes: &[u8; 32]) -> bool {
+    let Ok(compressed_edwards_y) = CompressedEdwardsY::from_slice(bytes.as_ref()) else {
+        return true;
+    };
+    compressed_edwards_y.decompress().is_none()
+}
+```
+
+**Bump-Based Collision Resolution**:
+```rust
+/// Find valid off-curve UnitsObjectId using bump mechanism
+pub fn find_uid(seeds: &[&[u8]]) -> (UnitsObjectId, u8) {
+    for bump in 0..255 {
+        let id = UnitsObjectId::create_object_id(seeds, bump);
+        if UnitsObjectId::is_off_curve(&id) {
+            return (UnitsObjectId(id), bump);
+        }
+    }
+    panic!("Failed to find a valid UnitsObjectId")
+}
+```
+
+#### Design Rationale
+
+**Why Not UUID?** The deterministic hashing approach provides critical properties that UUIDs cannot:
+
+1. **Dual-Purpose Architecture**: UnitsObjectId serves as both:
+   - Deterministically generated object identifiers (off-curve)
+   - Ed25519 public keys for accounts (on-curve)
+
+2. **Cryptographic Security**: 
+   - SHA-256 provides 256-bit collision resistance
+   - Domain separation prevents cross-protocol attacks
+   - Off-curve requirement prevents confusion with signing keys
+
+3. **Deterministic Reproducibility**: Same input seeds always produce the same object ID, essential for:
+   - Distributed systems consensus
+   - Reproducible object creation
+   - Cross-node verification
+
+4. **Proof System Integration**: The uniform 32-byte format integrates seamlessly with cryptographic proof generation where object IDs are hashed into state commitments.
+
+5. **Storage Efficiency**: 32-byte fixed-size keys work optimally with key-value storage systems.
+
+#### Security Properties
+
+- **Collision Resistance**: SHA-256 based with 256-bit security
+- **Off-Curve Guarantee**: Cannot be used as Ed25519 signing keys
+- **Domain Separation**: Prevents cross-protocol hash collisions
+- **Deterministic**: Same inputs always produce same outputs
+
+#### Usage Patterns
+
+**System Controllers** (hardcoded for bootstrap security):
+```rust
+pub const SYSTEM_LOADER_ID: UnitsObjectId = UnitsObjectId::new([0; 32]);
+pub const TOKEN_CONTROLLER_ID: UnitsObjectId = UnitsObjectId::new([1; 32]);
+```
+
+**Dynamic Object Creation**:
+```rust
+let (object_id, bump) = UnitsObjectId::find_uid(&[account_pubkey, nonce]);
+```
+
+**Account Integration**:
+```rust
+// When UnitsObjectId IS on curve, it can be used as Ed25519 public key
+pub fn from_units_object_id(id: &UnitsObjectId) -> Result<PublicKey, CryptoError> {
+    let mut bytes = [0u8; PUBLIC_KEY_SIZE];
+    bytes.copy_from_slice(id.bytes());
+    PublicKey::from_bytes(&bytes)
+}
+```
+
 ### Core Structure
 
 ```rust
