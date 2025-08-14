@@ -11,7 +11,6 @@ keywords = ["units", "tokenization", "runtime", "verification"]
 [dependencies]
 units-core-types.workspace = true
 units-proofs = { path = "../units-proofs" }
-units-storage.workspace = true
 units-storage-impl.workspace = true
 bincode.workspace = true
 serde.workspace = true

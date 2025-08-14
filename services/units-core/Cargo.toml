@@ -9,7 +9,6 @@ repository.workspace = true
 [dependencies]
 # Internal crates
 units-core-types.workspace = true
-units-storage.workspace = true
 units-storage-impl.workspace = true
 units-runtime.workspace = true
 

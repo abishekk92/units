@@ -17,7 +17,7 @@ pub mod lock_manager;
 pub mod wal;
 
 // Re-export the main storage traits for convenience
-pub use units_storage::{
+pub use units_core_types::{
     ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog, 
     LockManager, ReceiptStorage, UnitsStorage,
 };

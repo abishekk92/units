@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "crates/units-core-types",
     "crates/units-proofs",
-    "crates/units-storage",
     "crates/units-storage-impl", 
     "crates/units-runtime",
     "crates/units-kernel-sdk",

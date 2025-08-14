@@ -7,7 +7,7 @@ use units_core_types::error::StorageError;
 use units_core_types::id::UnitsObjectId;
 use units_core_types::transaction::TransactionReceipt;
 use units_core_types::SlotNumber;
-use units_storage::ReceiptStorage;
+use units_core_types::ReceiptStorage;
 
 /// Simple in-memory receipt storage for testing
 pub struct InMemoryReceiptStorage {

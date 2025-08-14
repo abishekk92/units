@@ -3,7 +3,7 @@
 //! This module provides a working implementation of the consolidated storage
 //! architecture with in-memory implementations for development and testing.
 
-use units_storage::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog};
+use units_core_types::{ObjectStorage, HistoricalStorage, ProofStorage, WriteAheadLog};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use units_core_types::error::StorageError;
@@ -289,13 +289,13 @@ impl WriteAheadLog for NoOpWriteAheadLog {
 
 /// Complete consolidated storage implementation using composition
 pub struct ConsolidatedUnitsStorage {
-    inner: units_storage::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog>,
+    inner: units_core_types::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog>,
 }
 
 impl ConsolidatedUnitsStorage {
     pub fn create() -> Self {
         Self {
-            inner: units_storage::UnitsStorage::new(
+            inner: units_core_types::UnitsStorage::new(
                 InMemoryObjectStorage::new(),
                 InMemoryProofStorage::new(),
                 Some(NoOpWriteAheadLog),
@@ -304,12 +304,12 @@ impl ConsolidatedUnitsStorage {
     }
     
     /// Get access to the inner storage
-    pub fn inner(&self) -> &units_storage::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
+    pub fn inner(&self) -> &units_core_types::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
         &self.inner
     }
     
     /// Get mutable access to the inner storage
-    pub fn inner_mut(&mut self) -> &mut units_storage::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
+    pub fn inner_mut(&mut self) -> &mut units_core_types::UnitsStorage<InMemoryObjectStorage, InMemoryProofStorage, NoOpWriteAheadLog> {
         &mut self.inner
     }
 }

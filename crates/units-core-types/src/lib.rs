@@ -6,6 +6,7 @@ pub mod objects;
 pub mod proofs;
 pub mod transaction;
 pub mod scheduler;
+pub mod storage;
 
 // Re-export the main types for convenience
 pub use constants::{
@@ -59,6 +60,17 @@ pub use proofs::{
     VerificationResult,
     MerkleNode,
     ProofStorageError,
+};
+
+// Re-export storage traits
+pub use storage::{
+    ObjectStorage,
+    HistoricalStorage,
+    ProofStorage,
+    WriteAheadLog,
+    ReceiptStorage,
+    LockManager,
+    UnitsStorage,
 };
 
 

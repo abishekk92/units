@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use units_core_types::id::UnitsObjectId;
 use units_core_types::objects::UnitsObject;
 use units_core_types::transaction::{Transaction, TransactionReceipt};
-use units_storage::ObjectStorage;
+use units_core_types::ObjectStorage;
 use units_storage_impl::ConsolidatedUnitsStorage;
 use units_runtime::Runtime;
 

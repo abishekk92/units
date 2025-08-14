@@ -2,7 +2,7 @@
 //! 
 //! Provides concrete implementations of the WriteAheadLog trait for durability.
 
-use units_storage::WriteAheadLog;
+use units_core_types::WriteAheadLog;
 use bincode;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};

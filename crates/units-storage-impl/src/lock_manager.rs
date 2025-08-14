@@ -2,7 +2,7 @@
 //! 
 //! Provides concrete implementations of the LockManager trait for object-level locking.
 
-use units_storage::LockManager;
+use units_core_types::LockManager;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use units_core_types::error::StorageError;

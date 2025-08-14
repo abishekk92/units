@@ -9,7 +9,7 @@ pub mod vm_executor;
 pub use runtime::Runtime;
 pub use units_core_types::transaction::{TransactionEffect, TransactionReceipt};
 // Re-export storage traits and implementations
-pub use units_storage::ReceiptStorage;
+pub use units_core_types::ReceiptStorage;
 pub use units_storage_impl::InMemoryReceiptStorage;
 
 // Re-export types from units-core

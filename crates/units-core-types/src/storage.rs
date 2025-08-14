@@ -1,6 +1,6 @@
 //! UNITS Storage Traits
 //! 
-//! This crate provides the core storage trait definitions for the UNITS (Universal
+//! This module provides the core storage trait definitions for the UNITS (Universal
 //! Information Tokenization System) without any concrete implementations.
 //! 
 //! The traits follow a clean separation of concerns:
@@ -14,11 +14,11 @@
 //! Concrete implementations are provided by the `units-storage-impl` crate.
 
 use std::collections::HashMap;
-use units_core_types::error::StorageError;
-use units_core_types::id::UnitsObjectId;
-use units_core_types::objects::UnitsObject;
-use units_core_types::{SlotNumber, StateProof, UnitsObjectProof};
-use units_core_types::transaction::TransactionReceipt;
+use crate::error::StorageError;
+use crate::id::UnitsObjectId;
+use crate::objects::UnitsObject;
+use crate::{SlotNumber, StateProof, UnitsObjectProof};
+use crate::transaction::TransactionReceipt;
 
 //==============================================================================
 // CORE STORAGE TRAIT

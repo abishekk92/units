@@ -2357,7 +2357,6 @@ dependencies = [
  "tower-http",
  "units-core-types",
  "units-runtime",
- "units-storage",
  "units-storage-impl",
 ]
 
@@ -2415,18 +2414,7 @@ dependencies = [
  "thiserror",
  "units-core-types",
  "units-proofs",
- "units-storage",
  "units-storage-impl",
-]
-
-[[package]]
-name = "units-storage"
-version = "0.1.0"
-dependencies = [
- "serde",
- "thiserror",
- "units-core-types",
- "units-proofs",
 ]
 
 [[package]]
@@ -2441,7 +2429,6 @@ dependencies = [
  "thiserror",
  "units-core-types",
  "units-proofs",
- "units-storage",
 ]
 
 [[package]]
