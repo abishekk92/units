@@ -58,4 +58,5 @@ pub use proofs::{
     StateProof,
     UnitsObjectProof,
     VerificationResult,
+    MerkleNode,
 };

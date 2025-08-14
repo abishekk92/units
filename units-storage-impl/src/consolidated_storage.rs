@@ -9,14 +9,14 @@ use std::sync::RwLock;
 use units_core::error::StorageError;
 use units_core::id::UnitsObjectId;
 use units_core::objects::UnitsObject;
-use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof, ConcreteProofEngine};
+use units_core::proofs::{SlotNumber, StateProof, UnitsObjectProof, ProofEngine};
 
 /// Simple in-memory object storage implementation with integrated proof generation
 pub struct InMemoryObjectStorage {
     objects: RwLock<HashMap<UnitsObjectId, UnitsObject>>,
     history: RwLock<HashMap<(UnitsObjectId, SlotNumber), UnitsObject>>,
     proof_history: RwLock<HashMap<UnitsObjectId, Vec<UnitsObjectProof>>>,
-    proof_engine: ConcreteProofEngine,
+    proof_engine: ProofEngine,
 }
 
 impl InMemoryObjectStorage {
@@ -25,7 +25,7 @@ impl InMemoryObjectStorage {
             objects: RwLock::new(HashMap::new()),
             history: RwLock::new(HashMap::new()),
             proof_history: RwLock::new(HashMap::new()),
-            proof_engine: ConcreteProofEngine::new(),
+            proof_engine: ProofEngine::new(),
         }
     }
     

@@ -1,7 +1,7 @@
 use crate::id::UnitsObjectId;
 use crate::locks::{ObjectLockGuard, PersistentLockManager};
 use crate::objects::UnitsObject;
-use crate::proofs::{ConcreteProofEngine, UnitsObjectProof};
+use crate::proofs::{ProofEngine, UnitsObjectProof};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -365,7 +365,7 @@ impl TransactionReceipt {
     pub fn add_effect_with_proof(
         &mut self, 
         effect: TransactionEffect,
-        proof_engine: &ConcreteProofEngine,
+        proof_engine: &ProofEngine,
         prev_proof: Option<&UnitsObjectProof>,
     ) -> Result<(), crate::error::StorageError> {
         // Generate proof for the effect
@@ -426,7 +426,7 @@ impl TransactionReceipt {
         object_id: UnitsObjectId,
         before_image: Option<UnitsObject>,
         after_image: Option<UnitsObject>,
-        proof_engine: &ConcreteProofEngine,
+        proof_engine: &ProofEngine,
         prev_proof: Option<&UnitsObjectProof>,
     ) -> Result<(), crate::error::StorageError> {
         let effect = TransactionEffect {

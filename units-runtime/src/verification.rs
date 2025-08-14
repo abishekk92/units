@@ -12,17 +12,18 @@ use units_core::proofs::{ProofEngine, SlotNumber, StateProof, VerificationResult
 
 use units_core::transaction::TransactionReceipt;
 
-/// Verifier for transaction receipts and proofs that adapts the proof engine
-/// for receipt verification.
-pub struct ProofVerifier<'a> {
+/// Verifier for transaction receipts and proofs
+pub struct ProofVerifier {
     /// The proof engine to use for verification
-    engine: &'a dyn ProofEngine,
+    engine: ProofEngine,
 }
 
-impl<'a> ProofVerifier<'a> {
-    /// Create a new proof verifier with the given engine
-    pub fn new(engine: &'a dyn ProofEngine) -> Self {
-        Self { engine }
+impl ProofVerifier {
+    /// Create a new proof verifier
+    pub fn new() -> Self {
+        Self { 
+            engine: ProofEngine::new()
+        }
     }
 
     /// Verify a single object proof
