@@ -1,4 +1,4 @@
-use crate::vm_executor::{ExecutionContext, ObjectEffect, VMExecutionError, VMExecutor};
+use units_core_types::{ExecutionContext, ObjectEffect, VMExecutionError, VMExecutor};
 use rvsim::*;
 use std::time::Instant;
 use units_core_types::objects::VMType;
@@ -264,7 +264,7 @@ impl VMExecutor for RiscVExecutor {
         let effects = self.read_output_buffer(&memory)?;
 
         // 7. Validate effects (controller can only modify objects it controls)
-        crate::vm_executor::validate_object_effects(&effects, context.instruction.controller_id)?;
+        units_core_types::validate_object_effects(&effects, context.instruction.controller_id)?;
 
         Ok(effects)
     }
@@ -273,7 +273,7 @@ impl VMExecutor for RiscVExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vm_executor::ExecutionContext;
+    use units_core_types::ExecutionContext;
     use std::collections::HashMap;
     use units_core_types::constants::TOKEN_CONTROLLER_ID;
     use units_core_types::transaction::Instruction;

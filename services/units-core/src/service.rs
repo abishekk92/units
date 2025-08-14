@@ -7,7 +7,7 @@ use units_core_types::objects::UnitsObject;
 use units_core_types::transaction::{Transaction, TransactionReceipt};
 use units_core_types::ObjectStorage;
 use units_storage_impl::ConsolidatedUnitsStorage;
-use units_runtime::Runtime;
+use units_core_types::Runtime;
 
 use crate::config::Config;
 use crate::error::{ServiceError, ServiceResult};

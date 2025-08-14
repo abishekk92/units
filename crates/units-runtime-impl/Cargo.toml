@@ -1,8 +1,8 @@
 [package]
-name = "units-runtime"
+name = "units-runtime-impl"
 version.workspace = true
 edition.workspace = true
-description = "Runtime and verification for Universal Information Tokenization System (UNITS)"
+description = "Runtime implementations for Universal Information Tokenization System (UNITS)"
 license.workspace = true
 repository.workspace = true
 readme.workspace = true

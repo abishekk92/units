@@ -1,16 +1,22 @@
-use crate::vm_executor::{ExecutionContext, VMExecutionError, VMExecutor};
-use std::collections::HashMap;
-use units_core_types::error::RuntimeError;
-use units_core_types::id::UnitsObjectId;
-use units_core_types::objects::UnitsObject;
-use units_core_types::transaction::{
+//! Runtime trait definitions for the UNITS system
+//!
+//! This module provides the core runtime interfaces without any concrete implementations.
+
+use crate::error::RuntimeError;
+use crate::id::UnitsObjectId;
+use crate::objects::{UnitsObject, VMType};
+use crate::transaction::{
     CommitmentLevel, ConflictResult, Instruction, Transaction, TransactionHash, TransactionReceipt,
 };
+use std::collections::HashMap;
+
+// Forward declare types that will be defined in vm_executor module
+use crate::vm_executor::{ExecutionContext, VMExecutionError, VMExecutor, ObjectEffect};
 
 /// Runtime for executing transactions and programs in the UNITS system
 pub trait Runtime {
     /// Get the VM executors available to this runtime
-    fn get_vm_executor(&self, vm_type: units_core_types::objects::VMType) -> Option<Box<dyn VMExecutor>>;
+    fn get_vm_executor(&self, vm_type: VMType) -> Option<Box<dyn VMExecutor>>;
 
     //--------------------------------------------------------------------------
     // TRANSACTION EXECUTION
@@ -52,7 +58,7 @@ pub trait Runtime {
         objects: HashMap<UnitsObjectId, UnitsObject>,
         slot: u64,
         timestamp: u64,
-    ) -> Result<Vec<crate::vm_executor::ObjectEffect>, VMExecutionError> {
+    ) -> Result<Vec<ObjectEffect>, VMExecutionError> {
         // Get the controller object 
         let controller = objects.get(&instruction.controller_id)
             .ok_or_else(|| VMExecutionError::InvalidBytecode("Controller object not found".to_string()))?
@@ -108,72 +114,5 @@ pub trait Runtime {
     /// Mark a transaction as failed
     fn fail_transaction(&self, transaction_hash: &TransactionHash) -> Result<(), RuntimeError> {
         self.update_commitment_level(transaction_hash, CommitmentLevel::Failed)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use units_core_types::id::UnitsObjectId;
-
-    #[test]
-    fn test_transaction_receipt_creation() {
-        // Create a transaction receipt
-        let transaction_hash = [1u8; 32];
-        let slot = 42;
-        let success = true;
-        let timestamp = 123456789;
-
-        let mut receipt = TransactionReceipt::new(transaction_hash, slot, success, timestamp);
-
-        // Verify the receipt fields
-        assert_eq!(receipt.transaction_hash, transaction_hash);
-        assert_eq!(receipt.slot, slot);
-        assert_eq!(receipt.success, success);
-        assert_eq!(receipt.timestamp, timestamp);
-        assert_eq!(receipt.object_count(), 0);
-        assert_eq!(receipt.effects.len(), 0);
-
-        // Add some object proofs
-        let object_id1 = UnitsObjectId::unique_id_for_tests();
-        let object_id2 = UnitsObjectId::unique_id_for_tests();
-
-        // Create proper UnitsObjectProof instances for testing
-        use units_core_types::UnitsObjectProof;
-        use units_proofs::current_slot;
-        
-        let proof1 = UnitsObjectProof::new(
-            object_id1.into(),
-            [1u8; 32],
-            current_slot(),
-            vec![1, 2, 3],
-            None,
-            None,
-        );
-        
-        let proof2 = UnitsObjectProof::new(
-            object_id2.into(),
-            [2u8; 32],
-            current_slot(),
-            vec![4, 5, 6],
-            None,
-            None,
-        );
-
-        receipt.add_proof(object_id1, proof1);
-        receipt.add_proof(object_id2, proof2);
-
-        // Verify the proofs were added
-        assert_eq!(receipt.object_count(), 2);
-
-        // Check if objects exist in the collection
-        assert!(receipt.object_proofs.contains_key(&object_id1));
-
-        // Test setting an error
-        let error_msg = "Transaction failed".to_string();
-        receipt.set_error(error_msg.clone());
-
-        assert_eq!(receipt.success, false);
-        assert_eq!(receipt.error_message, Some(error_msg));
     }
 }

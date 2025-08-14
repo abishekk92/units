@@ -7,6 +7,9 @@ pub mod proofs;
 pub mod transaction;
 pub mod scheduler;
 pub mod storage;
+pub mod runtime;
+pub mod vm_executor;
+pub mod transaction_manager;
 
 // Re-export the main types for convenience
 pub use constants::{
@@ -42,7 +45,6 @@ pub use transaction::{
     TransactionEffect,
     TransactionHash,
     TransactionReceipt,
-    ObjectEffect,
 };
 
 // Re-export scheduler types
@@ -71,6 +73,25 @@ pub use storage::{
     ReceiptStorage,
     LockManager,
     UnitsStorage,
+};
+
+// Re-export runtime traits
+pub use runtime::Runtime;
+
+// Re-export VM executor traits and types
+pub use vm_executor::{
+    VMExecutor,
+    ExecutionContext,
+    ObjectEffect,
+    VMExecutionError,
+    validate_object_effects,
+};
+
+// Re-export transaction manager traits and types
+pub use transaction_manager::{
+    TransactionManager,
+    TransactionFilter,
+    TransactionContext,
 };
 
 

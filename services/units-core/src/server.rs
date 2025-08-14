@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use units_runtime::MockRuntime;
+use units_runtime_impl::MockRuntime;
 use units_storage_impl::ConsolidatedUnitsStorage;
 
 use crate::config::Config;
@@ -29,7 +29,7 @@ impl UnitsServer {
         };
 
         // Initialize runtime (using mock for now)
-        let runtime: Arc<dyn units_runtime::Runtime + Send + Sync> = Arc::new(MockRuntime::new());
+        let runtime: Arc<dyn units_core_types::Runtime + Send + Sync> = Arc::new(MockRuntime::new());
 
         // Create service
         let service = UnitsService::new(storage, runtime, config);

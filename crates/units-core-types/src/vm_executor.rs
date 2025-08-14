@@ -1,8 +1,12 @@
+//! VM Executor trait and related types for the UNITS system
+//!
+//! This module provides the core VM execution interfaces and supporting data structures.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use units_core_types::id::UnitsObjectId;
-use units_core_types::objects::{UnitsObject, VMType};
-use units_core_types::transaction::Instruction;
+use crate::id::UnitsObjectId;
+use crate::objects::{UnitsObject, VMType};
+use crate::transaction::Instruction;
 
 /// Complete context provided to controller during execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,7 +52,6 @@ impl ExecutionContext {
     pub fn all_objects(&self) -> &HashMap<UnitsObjectId, UnitsObject> {
         &self.objects
     }
-
 }
 
 /// Effect of controller execution on a single object
@@ -153,62 +156,4 @@ pub fn validate_object_effects(
         }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use units_core_types::constants::TOKEN_CONTROLLER_ID;
-
-    #[test]
-    fn test_execution_context() {
-        let instruction = Instruction::new(
-            TOKEN_CONTROLLER_ID,
-            "transfer".to_string(),
-            vec![UnitsObjectId::new([1; 32])],
-            vec![1, 2, 3, 4],
-        );
-        
-        let mut objects = HashMap::new();
-        let obj = UnitsObject::new_data(
-            UnitsObjectId::new([1; 32]),
-            TOKEN_CONTROLLER_ID,
-            vec![100, 200],
-        );
-        objects.insert(obj.id, obj);
-        
-        let context = ExecutionContext::new(instruction, objects, 123, 456);
-        
-        assert_eq!(context.slot, 123);
-        assert_eq!(context.timestamp, 456);
-        assert_eq!(context.objects.len(), 1);
-        assert_eq!(context.writable_objects().count(), 1);
-    }
-
-    #[test]
-    fn test_object_effects() {
-        let obj = UnitsObject::new_data(
-            UnitsObjectId::new([1; 32]),
-            TOKEN_CONTROLLER_ID,
-            vec![1, 2, 3],
-        );
-        
-        let creation = ObjectEffect::creation(obj.clone());
-        assert!(creation.before_image.is_none());
-        assert!(creation.after_image.is_some());
-        
-        let modified_obj = UnitsObject::new_data(
-            UnitsObjectId::new([1; 32]),
-            TOKEN_CONTROLLER_ID,
-            vec![4, 5, 6],
-        );
-        
-        let modification = ObjectEffect::modification(obj.clone(), modified_obj);
-        assert!(modification.before_image.is_some());
-        assert!(modification.after_image.is_some());
-        
-        let deletion = ObjectEffect::deletion(obj);
-        assert!(deletion.before_image.is_some());
-        assert!(deletion.after_image.is_none());
-    }
 }

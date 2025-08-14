@@ -1,14 +1,14 @@
-//! Transaction management for the UNITS runtime
+//! Transaction management traits for the UNITS runtime
 //! 
 //! This module consolidates all transaction-related operations that were previously
 //! split between Storage and Runtime traits.
 
 use std::collections::HashMap;
-use units_core_types::error::{RuntimeError, StorageError};
-use units_core_types::id::UnitsObjectId;
-use units_core_types::objects::UnitsObject;
-use units_core_types::{SlotNumber, UnitsObjectProof};
-use units_core_types::transaction::{
+use crate::error::{RuntimeError, StorageError};
+use crate::id::UnitsObjectId;
+use crate::objects::UnitsObject;
+use crate::{SlotNumber, UnitsObjectProof};
+use crate::transaction::{
     CommitmentLevel, ConflictResult, Transaction, TransactionEffect, 
     TransactionHash, TransactionReceipt
 };

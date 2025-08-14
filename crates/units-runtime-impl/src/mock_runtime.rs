@@ -8,8 +8,7 @@ use units_core_types::transaction::{
 };
 use units_core_types::SlotNumber;
 
-use crate::runtime::Runtime;
-use crate::vm_executor::VMExecutor;
+use units_core_types::{Runtime, VMExecutor};
 use crate::riscv_executor::RiscVExecutor;
 
 /// Mock implementation of the Runtime trait for testing purposes

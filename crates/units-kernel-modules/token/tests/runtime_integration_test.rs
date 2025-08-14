@@ -3,7 +3,8 @@ use token::*;
 use units_kernel_sdk::{
     Instruction, UnitsObject, UnitsObjectId, ObjectType, ExecutionContext, ObjectEffect, OBJECT_ID_SIZE,
 };
-use units_runtime::{MockRuntime, VMExecutionError};
+use units_runtime_impl::MockRuntime;
+use units_core_types::VMExecutionError;
 
 // Convert units_core_types::UnitsObjectId to units_kernel_sdk::UnitsObjectId  
 #[allow(dead_code)]

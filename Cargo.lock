@@ -13,7 +13,7 @@ dependencies = [
  "tokio",
  "units-core-types",
  "units-kernel-sdk",
- "units-runtime",
+ "units-runtime-impl",
 ]
 
 [[package]]
@@ -2097,7 +2097,7 @@ dependencies = [
  "tokio",
  "units-core-types",
  "units-kernel-sdk",
- "units-runtime",
+ "units-runtime-impl",
 ]
 
 [[package]]
@@ -2356,7 +2356,7 @@ dependencies = [
  "tower 0.4.13",
  "tower-http",
  "units-core-types",
- "units-runtime",
+ "units-runtime-impl",
  "units-storage-impl",
 ]
 
@@ -2401,7 +2401,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "units-runtime"
+name = "units-runtime-impl"
 version = "0.1.0"
 dependencies = [
  "anyhow",

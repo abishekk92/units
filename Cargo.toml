@@ -4,7 +4,7 @@ members = [
     "crates/units-core-types",
     "crates/units-proofs",
     "crates/units-storage-impl", 
-    "crates/units-runtime",
+    "crates/units-runtime-impl",
     "crates/units-kernel-sdk",
     "crates/units-kernel-modules/token",
     "crates/units-kernel-modules/account",
@@ -36,7 +36,6 @@ borsh = { version = "1.5", features = ["derive"] }
 # Internal crates
 units-core-types = { path = "./crates/units-core-types" }
 units-proofs = { path = "./crates/units-proofs" }
-units-storage = { path = "./crates/units-storage" }
 units-storage-impl = { path = "./crates/units-storage-impl" }
-units-runtime = { path = "./crates/units-runtime" }
+units-runtime-impl = { path = "./crates/units-runtime-impl" }
 units-kernel-sdk = { path = "./crates/units-kernel-sdk" }
