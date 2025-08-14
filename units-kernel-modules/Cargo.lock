@@ -6,7 +6,10 @@ version = 4
 name = "account"
 version = "0.1.0"
 dependencies = [
+ "arrayref",
  "borsh",
+ "curve25519-dalek",
+ "sha2",
  "tokio",
  "units-core",
  "units-kernel-sdk",
