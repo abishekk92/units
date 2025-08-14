@@ -1,4 +1,3 @@
-pub mod host_environment;
 pub mod mock_runtime;
 pub mod riscv_executor;
 pub mod runtime;
@@ -20,10 +19,6 @@ pub use units_core_types::transaction::{ConflictResult, Instruction, Transaction
 pub use verification::{detect_double_spend, verify_transaction_included, ProofVerifier};
 
 
-// Re-export host environment types
-pub use host_environment::{
-    create_host_environment, HostEnvironment, StandardHostEnvironment,
-};
 
 // Re-export MockRuntime for testing
 pub use mock_runtime::MockRuntime;
