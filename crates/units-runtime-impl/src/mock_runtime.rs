@@ -8,8 +8,9 @@ use units_core_types::transaction::{
 };
 use units_core_types::SlotNumber;
 
-use units_core_types::{Runtime, VMExecutor};
+use units_core_types::{Runtime, VMExecutor, Verifier};
 use crate::riscv_executor::RiscVExecutor;
+use crate::verification::ProofVerifier;
 
 /// Mock implementation of the Runtime trait for testing purposes
 pub struct MockRuntime {
@@ -21,6 +22,8 @@ pub struct MockRuntime {
     current_slot: SlotNumber,
     /// Mock objects in memory (used for testing)
     objects: HashMap<UnitsObjectId, UnitsObject>,
+    /// Verifier for proof and transaction verification
+    verifier: ProofVerifier,
 }
 
 impl MockRuntime {
@@ -31,6 +34,7 @@ impl MockRuntime {
             receipts: HashMap::new(),
             current_slot: 0,
             objects: HashMap::new(),
+            verifier: ProofVerifier::new(),
         }
     }
 
@@ -95,6 +99,10 @@ impl Runtime for MockRuntime {
         // Mock implementation - always succeed
         Ok(true)
     }
+
+    fn get_verifier(&self) -> &dyn Verifier {
+        &self.verifier
+    }
 }
 
 impl Default for MockRuntime {
@@ -110,6 +118,7 @@ impl Clone for MockRuntime {
             receipts: self.receipts.clone(),
             current_slot: self.current_slot,
             objects: self.objects.clone(),
+            verifier: ProofVerifier::new(), // Create new verifier instance
         }
     }
 }

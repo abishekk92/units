@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use units_core_types::id::UnitsObjectId;
 use units_core_types::objects::UnitsObject;
 
-use units_core_types::{UnitsObjectProof, SlotNumber, StateProof, VerificationResult};
+use units_core_types::{UnitsObjectProof, SlotNumber, StateProof, VerificationResult, Verifier};
 use units_proofs::ProofEngine;
 
 use units_core_types::transaction::TransactionReceipt;
@@ -209,6 +209,57 @@ pub fn detect_double_spend(
     }
 
     VerificationResult::Valid
+}
+
+/// Implementation of the Verifier trait for ProofVerifier
+impl Verifier for ProofVerifier {
+    fn verify_object_proof(
+        &self,
+        object: &UnitsObject,
+        proof: &UnitsObjectProof,
+    ) -> VerificationResult {
+        ProofVerifier::verify_object_proof(self, object, proof)
+    }
+
+    fn verify_proof_chain(
+        &self,
+        object_states: &[(SlotNumber, UnitsObject)],
+        proofs: &[(SlotNumber, UnitsObjectProof)],
+    ) -> VerificationResult {
+        ProofVerifier::verify_proof_chain(self, object_states, proofs)
+    }
+
+    fn verify_state_proof(
+        &self,
+        state_proof: &StateProof,
+        object_proofs: &HashMap<UnitsObjectId, UnitsObjectProof>,
+    ) -> VerificationResult {
+        ProofVerifier::verify_state_proof(self, state_proof, object_proofs)
+    }
+
+    fn verify_transaction_receipt(
+        &self,
+        receipt: &TransactionReceipt,
+        objects: &HashMap<UnitsObjectId, UnitsObject>,
+    ) -> VerificationResult {
+        ProofVerifier::verify_transaction_receipt(self, receipt, objects)
+    }
+
+    fn verify_transaction_included(
+        &self,
+        transaction_hash: &[u8; 32],
+        receipts: &[TransactionReceipt],
+    ) -> VerificationResult {
+        verify_transaction_included(transaction_hash, receipts)
+    }
+
+    fn detect_double_spend(
+        &self,
+        object_id: &UnitsObjectId,
+        receipts: &[TransactionReceipt],
+    ) -> VerificationResult {
+        detect_double_spend(object_id, receipts)
+    }
 }
 
 #[cfg(test)]

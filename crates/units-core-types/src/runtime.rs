@@ -12,6 +12,7 @@ use std::collections::HashMap;
 
 // Forward declare types that will be defined in vm_executor module
 use crate::vm_executor::{ExecutionContext, VMExecutionError, VMExecutor, ObjectEffect};
+use crate::verification::Verifier;
 
 /// Runtime for executing transactions and programs in the UNITS system
 pub trait Runtime {
@@ -115,4 +116,14 @@ pub trait Runtime {
     fn fail_transaction(&self, transaction_hash: &TransactionHash) -> Result<(), RuntimeError> {
         self.update_commitment_level(transaction_hash, CommitmentLevel::Failed)
     }
+
+    //--------------------------------------------------------------------------
+    // VERIFICATION
+    //--------------------------------------------------------------------------
+
+    /// Get the verifier for this runtime
+    /// 
+    /// All runtime implementations must provide verification capabilities
+    /// to ensure transaction and proof integrity.
+    fn get_verifier(&self) -> &dyn Verifier;
 }

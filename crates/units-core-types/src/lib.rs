@@ -10,6 +10,7 @@ pub mod storage;
 pub mod runtime;
 pub mod vm_executor;
 pub mod transaction_manager;
+pub mod verification;
 
 // Re-export the main types for convenience
 pub use constants::{
@@ -93,5 +94,8 @@ pub use transaction_manager::{
     TransactionFilter,
     TransactionContext,
 };
+
+// Re-export verification traits
+pub use verification::Verifier;
 
 
