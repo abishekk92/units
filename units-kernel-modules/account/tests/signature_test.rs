@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use account::{
     AccountData, validate_username,
-    crypto::{Signature, PublicKey, verify_signature, create_operation_message},
+    crypto::{Signature, PublicKey, create_operation_message},
 };
 use units_kernel_sdk::UnitsObjectId;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, scalar::Scalar};

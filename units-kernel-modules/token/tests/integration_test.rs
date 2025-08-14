@@ -1,4 +1,3 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use token::*;
 use units_kernel_sdk::{Instruction, UnitsObject, UnitsObjectId, ObjectType, ObjectEffect, OBJECT_ID_SIZE};
 
@@ -336,11 +335,11 @@ fn test_complete_token_lifecycle() {
     let token_id = UnitsObjectId::new([1; OBJECT_ID_SIZE]);
     let alice_balance_id = UnitsObjectId::new([2; OBJECT_ID_SIZE]);
     let bob_balance_id = UnitsObjectId::new([3; OBJECT_ID_SIZE]);
-    let charlie_balance_id = UnitsObjectId::new([4; OBJECT_ID_SIZE]);
+    let _charlie_balance_id = UnitsObjectId::new([4; OBJECT_ID_SIZE]);
     let controller_id = UnitsObjectId::new([5; OBJECT_ID_SIZE]);
-    let alice_id = UnitsObjectId::new([6; OBJECT_ID_SIZE]);
+    let _alice_id = UnitsObjectId::new([6; OBJECT_ID_SIZE]);
     let bob_id = UnitsObjectId::new([7; OBJECT_ID_SIZE]);
-    let charlie_id = UnitsObjectId::new([8; OBJECT_ID_SIZE]);
+    let _charlie_id = UnitsObjectId::new([8; OBJECT_ID_SIZE]);
     
     // Step 1: Create Token - Create a new token with initial supply to Alice
     println!("Step 1: Creating token...");

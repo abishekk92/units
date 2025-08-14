@@ -4,13 +4,11 @@ use account::{
         AuthManager, AuthContext, AuthCredential, AuthFactor, SignatureType,
         AuthRequirement, AuthResult, AuthPolicy,
         signature_schemes::{Ed25519Authenticator, create_default_signature_authenticators},
-        multi_factor::{TotpAuthenticator, TotpSecret, TotpAlgorithm},
         policies::{StandardAccountPolicy, HighSecurityPolicy, ConfigurablePolicy}
     },
     FlexCreateAccountParams, FlexUpdateAccountParams, EnhancedAccountData
 };
 use units_kernel_sdk::UnitsObjectId;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, scalar::Scalar};
 
 #[test]
 fn test_flexible_auth_basic_signature() {
@@ -157,7 +155,7 @@ fn test_multi_factor_requirements() {
         }
     ];
     
-    let result = auth_manager.authenticate(&signature_and_totp, &auth_context);
+    let _result = auth_manager.authenticate(&signature_and_totp, &auth_context);
     // May still fail due to invalid credentials, but should recognize the factors
 }
 
@@ -325,13 +323,13 @@ fn test_auth_requirement_logic() {
     ]);
     
     // Test OR logic
-    let or_requirement = AuthRequirement::Any(vec![
+    let _or_requirement = AuthRequirement::Any(vec![
         AuthRequirement::Factor(AuthFactor::Signature(SignatureType::Ed25519)),
         AuthRequirement::Factor(AuthFactor::RecoveryKey),
     ]);
     
     // Test AtLeastN logic
-    let at_least_n_requirement = AuthRequirement::AtLeastN {
+    let _at_least_n_requirement = AuthRequirement::AtLeastN {
         n: 2,
         factors: vec![
             AuthRequirement::Factor(AuthFactor::Signature(SignatureType::Ed25519)),

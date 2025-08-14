@@ -3,9 +3,10 @@ use token::*;
 use units_kernel_sdk::{
     Instruction, UnitsObject, UnitsObjectId, ObjectType, ExecutionContext, ObjectEffect, OBJECT_ID_SIZE,
 };
-use units_runtime::{MockRuntime, VMExecutor, VMExecutionError};
+use units_runtime::{MockRuntime, VMExecutionError};
 
 // Convert units_core::UnitsObjectId to units_kernel_sdk::UnitsObjectId  
+#[allow(dead_code)]
 fn convert_id(id: units_core::UnitsObjectId) -> UnitsObjectId {
     let bytes = id.bytes();
     let mut array = [0u8; OBJECT_ID_SIZE];
@@ -20,13 +21,13 @@ const TOKEN_CONTROLLER_ID: UnitsObjectId = UnitsObjectId::new([0u8; 32]);
 #[tokio::test]
 async fn test_token_lifecycle_with_runtime() {
     // Create mock runtime
-    let mut runtime = MockRuntime::new();
+    let _runtime = MockRuntime::new();
     
     // Generate test IDs
     let token_id = UnitsObjectId::new([1u8; OBJECT_ID_SIZE]);
     let alice_balance_id = UnitsObjectId::new([2u8; OBJECT_ID_SIZE]);
     let bob_balance_id = UnitsObjectId::new([3u8; OBJECT_ID_SIZE]);
-    let alice_owner_id = UnitsObjectId::new([4u8; OBJECT_ID_SIZE]);
+    let _alice_owner_id = UnitsObjectId::new([4u8; OBJECT_ID_SIZE]);
     let bob_owner_id = UnitsObjectId::new([5u8; OBJECT_ID_SIZE]);
     
     // Test 1: Tokenize - Create new token
