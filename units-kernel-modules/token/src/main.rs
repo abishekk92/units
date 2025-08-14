@@ -18,10 +18,11 @@ use token::{
 };
 use units_kernel_sdk::{
     ExecutionContext, ObjectEffect, KernelModule, KernelError,
-    read_context, write_effects, UnitsObject, ObjectType,
+    UnitsObject, ObjectType,
 };
 
 /// Token kernel module implementation
+#[allow(dead_code)]
 struct TokenModule;
 
 impl KernelModule for TokenModule {

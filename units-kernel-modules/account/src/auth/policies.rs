@@ -7,7 +7,6 @@ use super::{
     AuthPolicy, AuthContext, AuthCredential, AuthResult, AuthError, 
     AuthRequirement, AuthFactor, SignatureType
 };
-use units_kernel_sdk::UnitsObjectId;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Standard account operations policy
@@ -89,7 +88,7 @@ impl StandardAccountPolicy {
         }
     }
     
-    fn has_factor(&self, factor: &AuthFactor, credentials: &[AuthCredential], context: &AuthContext) -> bool {
+    fn has_factor(&self, factor: &AuthFactor, credentials: &[AuthCredential], _context: &AuthContext) -> bool {
         match factor {
             AuthFactor::Signature(sig_type) => {
                 credentials.iter().any(|cred| {

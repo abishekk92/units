@@ -4,7 +4,7 @@ extern crate alloc;
 
 use alloc::string::String;
 use borsh::{BorshDeserialize, BorshSerialize};
-use units_kernel_sdk::{UnitsObjectId, OBJECT_ID_SIZE};
+use units_kernel_sdk::UnitsObjectId;
 
 pub const TOKEN_MODULE_NAME: &str = "token";
 
@@ -115,7 +115,7 @@ impl std::error::Error for TokenError {}
 mod tests {
     use super::*;
     use alloc::string::ToString;
-    use alloc::vec;
+    use units_kernel_sdk::OBJECT_ID_SIZE;
 
     #[test]
     fn test_token_data_serialization() {

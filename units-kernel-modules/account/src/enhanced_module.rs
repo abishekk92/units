@@ -22,18 +22,20 @@ use crate::{
         AuthManager, AuthContext, AuthResult, AuthError,
         signature_schemes::{create_default_signature_authenticators},
         multi_factor::{create_default_mfa_authenticators},
-        policies::{StandardAccountPolicy, HighSecurityPolicy, ConfigurablePolicy}
+        policies::{StandardAccountPolicy, HighSecurityPolicy}
     }
 };
 use units_kernel_sdk::{
     ExecutionContext, ObjectEffect, KernelModule, KernelError,
-    read_context, write_effects, UnitsObject, ObjectType, UnitsObjectId,
+    UnitsObject, ObjectType, UnitsObjectId,
 };
 
 #[cfg(not(feature = "std"))]
+#[allow(dead_code)]
 type MetadataMap = BTreeMap<String, String>;
 
 #[cfg(feature = "std")]
+#[allow(dead_code)]
 type MetadataMap = HashMap<String, String>;
 
 /// Enhanced account kernel module with flexible authentication

@@ -5,18 +5,21 @@
 extern crate alloc;
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec, string::String, collections::BTreeMap};
+#[allow(unused_imports)]
+use alloc::{collections::BTreeMap};
 
 #[cfg(feature = "std")]
-use std::{vec, vec::Vec, string::String, collections::HashMap};
+#[allow(unused_imports)]
+use std::{collections::HashMap};
 
 #[cfg(not(feature = "std"))]
 units_kernel_sdk::use_default_allocator!();
 
+#[allow(unused_imports)]
 use account::module::AccountModule;
+#[allow(unused_imports)]
 use units_kernel_sdk::{
     ExecutionContext, ObjectEffect, KernelModule, KernelError,
-    read_context, write_effects,
 };
 
 /// Entry point for the kernel module  

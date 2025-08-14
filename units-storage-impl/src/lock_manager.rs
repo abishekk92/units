@@ -18,6 +18,7 @@ unsafe impl Sync for SimpleLockGuard {}
 
 /// Simple in-memory lock manager for testing and development
 pub struct InMemoryLockManager {
+    #[allow(dead_code)]
     locks: Arc<Mutex<HashMap<UnitsObjectId, Arc<Mutex<()>>>>>,
 }
 

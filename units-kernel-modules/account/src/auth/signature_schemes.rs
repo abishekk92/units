@@ -5,7 +5,6 @@ use alloc::vec::Vec;
 
 use super::{Authenticator, AuthCredential, AuthContext, AuthResult, AuthError, AuthFactor, SignatureType};
 use crate::crypto;
-use units_kernel_sdk::UnitsObjectId;
 
 /// Ed25519 signature authenticator
 pub struct Ed25519Authenticator;

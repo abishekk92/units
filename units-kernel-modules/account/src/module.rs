@@ -17,19 +17,19 @@ use crate::{
     AccountData, CreateAccountParams, UpdateAccountParams, AddRecoveryAddressParams,
     RemoveRecoveryAddressParams, DeactivateAccountParams, ReactivateAccountParams,
     GetAccountParams, validate_username, 
-    FN_CREATE_ACCOUNT, FN_UPDATE_ACCOUNT, FN_ADD_RECOVERY_ADDRESS, FN_REMOVE_RECOVERY_ADDRESS,
-    FN_DEACTIVATE_ACCOUNT, FN_REACTIVATE_ACCOUNT, FN_GET_ACCOUNT,
     crypto::{verify_signature, create_operation_message, PublicKey, CryptoError},
 };
 use units_kernel_sdk::{
     ExecutionContext, ObjectEffect, KernelModule, KernelError,
-    read_context, write_effects, UnitsObject, ObjectType, UnitsObjectId,
+    UnitsObject, ObjectType, UnitsObjectId,
 };
 
 #[cfg(not(feature = "std"))]
+#[allow(dead_code)]
 type MetadataMap = BTreeMap<String, String>;
 
 #[cfg(feature = "std")]
+#[allow(dead_code)]
 type MetadataMap = HashMap<String, String>;
 
 /// Account kernel module implementation
