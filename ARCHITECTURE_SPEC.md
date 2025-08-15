@@ -877,7 +877,6 @@ let storage = UnitsStorage::new(
 ```
 
 **Benefits of This Design:**
-- **55% reduction in trait complexity** (from ~1,800 lines to ~800 lines)
 - **Single responsibility**: Each trait has one focused purpose
 - **Easy testing**: Mock individual storage capabilities
 - **Flexible composition**: Mix and match implementations
