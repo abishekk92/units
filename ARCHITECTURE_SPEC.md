@@ -7,7 +7,7 @@ This document specifies the unified object architecture for UNITS storage, where
 ## Core Principles
 
 1. **Unified Object Model**: All entities (data, code, accounts, tokens) are UnitsObjects
-2. **Controller-Based Security**: Each object has an immutable controller (kernel module) 
+2. **Controller-Based Security**: Each object has an immutable controller (kernel module)
 3. **Sandboxed Execution**: Controllers run in isolated VM environments (RISC-V, WASM, etc.)
 4. **Storage Simplicity**: Single key-value store (UnitsObjectId → UnitsObject)
 5. **Extensible VMs**: Support for multiple VM types via pluggable executors
@@ -75,7 +75,7 @@ pub fn find_uid(seeds: &[&[u8]]) -> (UnitsObjectId, u8) {
    - Deterministically generated object identifiers (off-curve)
    - Ed25519 public keys for accounts (on-curve)
 
-2. **Cryptographic Security**: 
+2. **Cryptographic Security**:
    - SHA-256 provides 256-bit collision resistance
    - Domain separation prevents cross-protocol attacks
    - Off-curve requirement prevents confusion with signing keys
@@ -129,10 +129,6 @@ pub fn from_units_object_id(id: &UnitsObjectId) -> Result<PublicKey, CryptoError
 pub enum VMType {
     /// RISC-V ELF shared objects (currently implemented)
     RiscV,
-    // Future VM types will be added here:
-    // Wasm,   - WebAssembly modules (planned)
-    // Ebpf,   - eBPF programs (planned) 
-    // Native, - x86_64 native code (planned)
 }
 
 /// Object type distinguishing data from executable objects
@@ -149,14 +145,14 @@ pub enum ObjectType {
 pub struct UnitsObject {
     /// Unique identifier - how object is indexed in storage
     pub id: UnitsObjectId,
-    
+
     /// Immutable controller - defines mutation rules for this object
     /// Points to another UnitsObject with ObjectType::Executable
     pub controller_id: UnitsObjectId,
-    
+
     /// Object type - data or executable with VM specification
     pub object_type: ObjectType,
-    
+
     /// Object payload: ELF/WASM/eBPF bytecode or arbitrary data
     pub data: Vec<u8>,
 }
@@ -185,7 +181,7 @@ UnitsObject {
 }
 ```
 
-#### Data Objects  
+#### Data Objects
 ```rust
 UnitsObject {
     id: data_object_id,
@@ -203,7 +199,7 @@ UnitsObject {
 /// Abstract interface for different VM types
 pub trait VMExecutor: Send + Sync {
     fn vm_type(&self) -> VMType;
-    
+
     /// Load bytecode and execute with given context
     fn load_and_execute(
         &self,
@@ -221,18 +217,18 @@ pub trait VMExecutor: Send + Sync {
 pub struct ExecutionContext {
     /// The instruction being executed
     pub instruction: Instruction,
-    
+
     /// Objects the controller can read/modify (pre-loaded from storage)
     /// Controllers can read any object but only modify objects they control
     pub objects: HashMap<UnitsObjectId, UnitsObject>,
-    
+
     /// Current slot number
     pub slot: u64,
-    
+
     /// Current timestamp
     pub timestamp: u64,
-    
-    
+
+
     // Note: env_vars field planned for future implementation
 }
 
@@ -243,7 +239,7 @@ impl ExecutionContext {
             obj.controller_id == self.instruction.controller_id
         })
     }
-    
+
     /// Get all objects (read-only + writable)
     pub fn all_objects(&self) -> &HashMap<UnitsObjectId, UnitsObject> {
         &self.objects
@@ -276,7 +272,7 @@ impl KernelModule for TokenModule {
     fn execute(ctx: &ExecutionContext) -> Result<Vec<ObjectEffect>, KernelError> {
         match ctx.instruction.target_function.as_str() {
             "create_token" => Self::handle_create_token(ctx),
-            "transfer_token" => Self::handle_transfer_token(ctx), 
+            "transfer_token" => Self::handle_transfer_token(ctx),
             "mint_token" => Self::handle_mint_token(ctx),
             "burn_token" => Self::handle_burn_token(ctx),
             _ => Err(KernelError::UnknownFunction(ctx.instruction.target_function.clone())),
@@ -292,16 +288,16 @@ impl TokenModule {
             .ok_or(KernelError::ObjectNotFound)?;
         let receiver_token = ctx.objects.get(&ctx.instruction.params.receiver_id)
             .ok_or(KernelError::ObjectNotFound)?;
-            
+
         // Validate controller permissions
         if sender_token.controller_id != ctx.instruction.controller_id {
             return Err(KernelError::PermissionDenied);
         }
-        
+
         // Create modified objects
         let new_sender = UnitsObject { /* updated balance */ };
         let new_receiver = UnitsObject { /* updated balance */ };
-        
+
         // Return effects describing state changes
         Ok(vec![
             ObjectEffect::modification(sender_token.clone(), new_sender),
@@ -319,7 +315,7 @@ sequenceDiagram
     participant VM as RISC-V VM
     participant Module as Kernel Module
     participant Storage as Storage Layer
-    
+
     Runtime->>Storage: Load target objects for instruction
     Runtime->>Runtime: Create ExecutionContext with objects
     Runtime->>VM: Load kernel module bytecode
@@ -347,10 +343,10 @@ pub struct WasmExecutor {
 
 impl VMExecutor for WasmExecutor {
     fn vm_type(&self) -> VMType { VMType::Wasm }
-    
+
     fn load_and_execute(
-        &self, 
-        wasm_bytes: &[u8], 
+        &self,
+        wasm_bytes: &[u8],
         context: &ExecutionContext
     ) -> Result<Vec<ObjectEffect>> {
         // Load WASM module with same KernelModule trait interface
@@ -359,7 +355,7 @@ impl VMExecutor for WasmExecutor {
     }
 }
 
-// Future eBPF executor implementation  
+// Future eBPF executor implementation
 pub struct EbpfExecutor {
     vm: EbpfVM,
     instruction_limit: u64,
@@ -367,11 +363,11 @@ pub struct EbpfExecutor {
 
 impl VMExecutor for EbpfExecutor {
     fn vm_type(&self) -> VMType { VMType::Ebpf }
-    
+
     fn load_and_execute(
         &self,
         ebpf_bytecode: &[u8],
-        context: &ExecutionContext  
+        context: &ExecutionContext
     ) -> Result<Vec<ObjectEffect>> {
         // Load eBPF program with standardized interface
         // Execute with instruction and memory limits
@@ -392,11 +388,11 @@ Controllers return object state changes from instruction execution. In the curre
 pub struct ObjectEffect {
     /// The object that was modified
     pub object_id: UnitsObjectId,
-    
+
     /// State before instruction execution (None if object was created)
     pub before_image: Option<UnitsObject>,
-    
-    /// State after instruction execution (None if object was deleted)  
+
+    /// State after instruction execution (None if object was deleted)
     pub after_image: Option<UnitsObject>,
 }
 
@@ -412,7 +408,7 @@ impl ObjectEffect {
             after_image: Some(object),
         }
     }
-    
+
     /// Modify existing object effect
     pub fn modification(before: UnitsObject, after: UnitsObject) -> Self {
         Self {
@@ -421,7 +417,7 @@ impl ObjectEffect {
             after_image: Some(after),
         }
     }
-    
+
     /// Delete object effect
     pub fn deletion(object: UnitsObject) -> Self {
         Self {
@@ -439,14 +435,14 @@ All ObjectEffects are validated before applying to storage:
 
 1. **Ownership Validation**: Controller can only modify objects it controls
    - Effect object must have `controller_id` matching the executing controller
-   
+
 2. **ID Consistency**: Effect object_id must match target object
    - `effect.object_id == effect.object.id` for all effect types
-   
+
 3. **Type Preservation**: Controllers cannot arbitrarily change object_type
    - `object_type` changes require explicit business logic validation
    - System controllers have broader privileges for type changes
-   
+
 4. **Size Limits**: Objects have maximum size constraints
    - Default: 10MB per object data payload
    - Prevents resource exhaustion attacks
@@ -463,14 +459,14 @@ In the current implementation, transaction effects are simplified to track singl
 pub struct TransactionEffect {
     /// The transaction that caused this effect
     pub transaction_hash: TransactionHash,
-    
+
     /// The single object that was modified
     pub object_id: UnitsObjectId,
-    
+
     /// State before instruction execution (None if object was created)
     pub before_image: Option<UnitsObject>,
-    
-    /// State after instruction execution (None if object was deleted)  
+
+    /// State after instruction execution (None if object was deleted)
     pub after_image: Option<UnitsObject>,
 }
 ```
@@ -489,42 +485,42 @@ pub struct TransactionEffect {
 ```mermaid
 sequenceDiagram
     participant Client as Client/User
-    participant Runtime as UNITS Runtime  
+    participant Runtime as UNITS Runtime
     participant VM as VM Executor
     participant Module as Kernel Module
     participant Storage as Storage Layer
     participant Proof as Proof Engine
-    
+
     Client->>Runtime: Submit Transaction with Instructions
-    
+
     loop For each Instruction
         Runtime->>Runtime: Validate instruction format
         Runtime->>Storage: Load target objects for instruction
         Runtime->>Storage: Load controller kernel module
         Runtime->>Runtime: Create ExecutionContext
-        
+
         Runtime->>VM: Execute controller with context
         VM->>VM: Initialize sandboxed environment
         VM->>Module: Call KernelModule::execute(ctx)
-        
+
         Module->>Module: Dispatch to target_function
         Module->>Module: Read objects from context
         Module->>Module: Validate business logic
         Module->>Module: Create ObjectEffects
-        
+
         Module->>VM: Return Vec<ObjectEffect>
         VM->>Runtime: Return effects from sandbox
-        
+
         Runtime->>Runtime: Validate effects (ownership, consistency)
         note over Runtime: Controller can only modify objects it owns
     end
-    
+
     Runtime->>Storage: Apply all validated effects
     Storage->>Storage: Update object states
-    
+
     Runtime->>Proof: Generate proofs for modified objects
     Proof->>Proof: Create cryptographic commitments
-    
+
     Runtime->>Storage: Store transaction receipt
     Runtime->>Client: Return TransactionReceipt with proofs
 ```
@@ -535,14 +531,14 @@ sequenceDiagram
 2. **Instruction Processing**: For each instruction in the transaction:
    - Validate instruction format and controller existence
    - Load target objects from storage into ExecutionContext
-   - Load controller kernel module bytecode from storage  
+   - Load controller kernel module bytecode from storage
    - Create VM executor based on controller's VMType
-3. **Sandboxed Execution**: 
+3. **Sandboxed Execution**:
    - Execute controller in isolated VM environment
    - Controller dispatches to target function based on instruction
    - Controller reads objects from context, performs business logic
    - Controller returns ObjectEffects describing state changes
-4. **Effect Validation**: 
+4. **Effect Validation**:
    - Verify controller can only modify objects it controls
    - Check object consistency and business rule compliance
    - Validate effect structure and object ID consistency
@@ -559,21 +555,21 @@ UNITS supports transactions with multiple instructions for complex operations:
 ```mermaid
 flowchart TD
     A[Transaction] --> B[Instruction 1]
-    A --> C[Instruction 2] 
+    A --> C[Instruction 2]
     A --> D[Instruction N]
-    
+
     B --> B1[Controller A]
     C --> C1[Controller B]
     D --> D1[Controller A]
-    
+
     B1 --> B2[Objects 1,2,3]
     C1 --> C2[Objects 4,5]
     D1 --> D2[Objects 6,7]
-    
+
     B2 --> E[Effect Validation]
     C2 --> E
     D2 --> E
-    
+
     E --> F[Atomic Storage Update]
     F --> G[Proof Generation]
     G --> H[Transaction Receipt]
@@ -596,14 +592,14 @@ graph TD
     A[UNITS Runtime] --> B[RiscVExecutor]
     B --> C[rvsim VM Instance]
     C --> D[Kernel Module ELF]
-    
+
     subgraph "Sandboxed Environment"
         D --> E[Memory Space]
         E --> F[ExecutionContext Buffer]
         E --> G[ObjectEffect Buffer]
         D --> H[KernelModule::execute]
     end
-    
+
     H --> I[Business Logic]
     I --> J[ObjectEffect Creation]
     J --> G
@@ -625,16 +621,16 @@ sequenceDiagram
     participant Runtime as UNITS Runtime
     participant Validator as Effect Validator
     participant Storage as Storage Layer
-    
+
     Runtime->>Runtime: Collect all ObjectEffects from instructions
     Runtime->>Validator: Validate effect batch
-    
+
     loop For each ObjectEffect
         Validator->>Validator: Check object_id consistency
         Validator->>Validator: Verify controller ownership
         Validator->>Validator: Validate before_image matches storage
         Validator->>Validator: Check business rule compliance
-        
+
         alt Validation Fails
             Validator->>Runtime: Return ValidationError
             Runtime->>Runtime: Reject entire transaction
@@ -642,7 +638,7 @@ sequenceDiagram
             Validator->>Validator: Continue to next effect
         end
     end
-    
+
     Validator->>Runtime: All effects valid
     Runtime->>Storage: Apply effects atomically
     Storage->>Storage: Update object states
@@ -664,13 +660,13 @@ sequenceDiagram
 pub struct Instruction {
     /// The controller kernel module to execute
     pub controller_id: UnitsObjectId,
-    
+
     /// Target function name within the controller (e.g., "transfer", "mint")
     pub target_function: String,
-    
+
     /// Objects this instruction will read/modify (all objects controller needs access to)
     pub target_objects: Vec<UnitsObjectId>,
-    
+
     /// Parameters for the specific function call
     pub params: Vec<u8>,
 }
@@ -685,17 +681,17 @@ pub struct Instruction {
 /// Validate controller access to target objects
 fn validate_controller_access(instruction: &Instruction, storage: &dyn Storage) -> Result<()> {
     let controller_id = instruction.controller_id;
-    
+
     for object_id in &instruction.target_objects {
         let object = storage.get(object_id)?;
-        
+
         // Controllers can read any object, but can only write objects they control
         if object.controller_id != controller_id {
             // This object will be read-only for this controller
             // Write attempts will be caught during effect validation
         }
     }
-    
+
     Ok(())
 }
 
@@ -711,7 +707,7 @@ fn validate_object_effects(effects: &[ObjectEffect], controller_id: UnitsObjectI
             }
         }
     }
-    
+
     Ok(())
 }
 ```
@@ -722,7 +718,7 @@ fn validate_object_effects(effects: &[ObjectEffect], controller_id: UnitsObjectI
 
 ```
 1. System starts with hardcoded SYSTEM_LOADER_ID
-2. System loader is self-controlling (controller_id = SYSTEM_LOADER_ID)  
+2. System loader is self-controlling (controller_id = SYSTEM_LOADER_ID)
 3. System loader loads other kernel modules from storage
 4. Kernel modules are controlled by system loader
 5. Data objects are controlled by appropriate kernel modules
@@ -751,10 +747,10 @@ pub struct RiscVExecutor {
 
 impl VMExecutor for RiscVExecutor {
     fn vm_type(&self) -> VMType { VMType::RiscV }
-    
+
     fn load_and_execute(
-        &self, 
-        elf_bytes: &[u8], 
+        &self,
+        elf_bytes: &[u8],
         context: &ExecutionContext
     ) -> Result<Vec<ObjectEffect>> {
         // 1. Initialize rvsim VM with resource limits
@@ -762,24 +758,24 @@ impl VMExecutor for RiscVExecutor {
             .with_memory_limit(self.memory_limit)
             .with_instruction_limit(self.instruction_limit)
             .with_time_limit(self.time_limit);
-            
+
         // 2. Load ELF binary (kernel module) into VM
         vm.load_elf(elf_bytes)?;
-        
+
         // 3. Serialize ExecutionContext for kernel module
         let context_data = borsh::to_vec(context)?;
         vm.set_input_data(&context_data)?;
-        
+
         // 4. Execute KernelModule::execute entrypoint
         let exit_code = vm.run()?;
         if exit_code != 0 {
             return Err(VMError::ExecutionFailed(exit_code));
         }
-        
+
         // 5. Deserialize ObjectEffects returned by kernel module
         let output_data = vm.get_output_data()?;
         let effects: Vec<ObjectEffect> = borsh::from_slice(&output_data)?;
-        
+
         Ok(effects)
     }
 }
@@ -787,7 +783,7 @@ impl VMExecutor for RiscVExecutor {
 
 **Security Features:**
 - **Memory Isolation**: Each VM instance has isolated memory space
-- **Resource Limits**: Prevents DoS through instruction/time/memory limits  
+- **Resource Limits**: Prevents DoS through instruction/time/memory limits
 - **Deterministic Execution**: Same inputs always produce same outputs
 - **No System Access**: Kernel modules cannot access host system resources
 
@@ -828,24 +824,24 @@ graph TD
         D[WriteAheadLog]
         E[LockManager]
     end
-    
+
     subgraph "units-storage-impl (Implementations)"
         F[InMemoryObjectStorage]
         G[ConsolidatedUnitsStorage]
         H[InMemoryReceiptStorage]
         I[FileBasedWAL]
     end
-    
+
     subgraph "Composition"
         J[UnitsStorage]
     end
-    
+
     A -.-> F
     A -.-> G
     B -.-> G
     C -.-> H
     D -.-> I
-    
+
     F --> J
     G --> J
     H --> J
@@ -856,7 +852,7 @@ graph TD
 // units-storage: Trait definitions only
 use units_storage::{
     ObjectStorage,     // Core object persistence
-    ProofStorage,      // Cryptographic proof management  
+    ProofStorage,      // Cryptographic proof management
     ReceiptStorage,    // Transaction receipt tracking
     WriteAheadLog,     // Optional durability logging
     LockManager,       // Concurrency control
@@ -888,7 +884,7 @@ UnitsObjectId (32 bytes) → UnitsObject (serialized)
 
 ### Object Proof Generation
 - Each object mutation generates cryptographic proof
-- Proofs commit to before/after object states  
+- Proofs commit to before/after object states
 - Slot-level aggregation of all object proofs
 - Complete audit trail of all mutations
 
@@ -901,25 +897,25 @@ sequenceDiagram
     participant ProofStore as ProofStorage
     participant Receipt as ReceiptStorage
     participant WAL as WriteAheadLog
-    
+
     Runtime->>ObjStore: get() - Load objects for transaction
     ObjStore->>Runtime: Return current object states
-    
+
     Note over Runtime: Execute transaction, validate effects
-    
+
     Runtime->>WAL: log_transaction() - Durability guarantee
     WAL->>WAL: Write to persistent log
-    
+
     Runtime->>ObjStore: set() - Apply object changes
     ObjStore->>ObjStore: Update object states
     ObjStore->>Runtime: Return object proof
-    
+
     Runtime->>ProofStore: store_object_proof() - Store cryptographic proof
     ProofStore->>ProofStore: Commit proof to storage
-    
+
     Runtime->>Receipt: store_receipt() - Store transaction receipt
     Receipt->>Receipt: Index by slot, object, transaction hash
-    
+
     Runtime->>Runtime: Transaction complete
 ```
 
@@ -929,7 +925,7 @@ sequenceDiagram
 pub struct TransactionEffect {
     pub transaction_hash: TransactionHash,
     pub object_id: UnitsObjectId,
-    pub before_image: Option<UnitsObject>, 
+    pub before_image: Option<UnitsObject>,
     pub after_image: Option<UnitsObject>,
 }
 

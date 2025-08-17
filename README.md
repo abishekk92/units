@@ -54,22 +54,6 @@ UNITS implements a unified object architecture where **everything is an object**
   - Demonstrates best practices for kernel module development
   - Uses SDK allocator (no custom unsafe code)
 
-## Current Implementation Status
-
-### ✅ Production Ready
-- **RISC-V VM Execution** - Sandboxed controller execution with rvsim
-- **Unified Object Model** - Complete UnitsObject architecture
-- **Storage Architecture** - Trait-based composition design
-- **Kernel SDK** - Safe Rust development framework
-- **Token Module** - Reference implementation
-- **Proof Generation** - Cryptographic state commitments
-
-### 🚧 Architecture Defined, Implementation Pending
-- **WebAssembly VM** - WASM module execution
-- **eBPF VM** - eBPF program support
-- **Cross-Controller Communication** - Multi-controller transactions
-- **Distributed Execution** - Network consensus integration
-
 ## Quick Start
 
 ### Basic Storage Operations
@@ -171,7 +155,7 @@ let historical_object = storage.inner().objects.get_at_slot(&object_id, slot)?;
 
 UnitsObjectId uses deterministic SHA-256 hashing rather than UUIDs for critical architectural reasons:
 
-- **Deterministic**: Same seeds always produce same ID (essential for distributed consensus)
+- **Deterministic**: Same seeds always produce same ID
 - **Dual-Purpose**: Handles both off-curve object IDs and Ed25519 public keys in unified 32-byte format
 - **Security**: Domain separation prevents cross-protocol attacks, off-curve requirement prevents key confusion
 - **Proof Integration**: Fixed 32-byte format integrates seamlessly with cryptographic state commitments
@@ -220,16 +204,16 @@ let custom_storage = units_storage::UnitsStorage::new(
 
 ```bash
 # Build all workspace crates
-fish -c "cargo workspaces exec -- cargo build"
+cargo workspaces exec -- cargo build
 
 # Run tests across workspace
-fish -c "cargo workspaces exec -- cargo test"
+cargo workspaces exec -- cargo test
 
 # Check specific crate
-fish -c "cd units-kernel-sdk && cargo check"
+cd units-kernel-sdk && cargo check
 
 # Format code
-fish -c "cargo workspaces exec -- cargo fmt"
+cargo workspaces exec -- cargo fmt
 ```
 ## License
 
