@@ -2,6 +2,7 @@
 
 A modular storage and runtime system for the Universal Information Tokenization System (UNITS), a core component of Finternet.
 
+NOTE: Don't use this in prod. It's scratchpad/prototype to lay out different 
 ## Overview
 
 UNITS implements a unified object architecture where **everything is an object** with immutable controllers that define mutation rules through sandboxed execution. All entities (data, code, accounts, tokens) are represented as `UnitsObject`s with cryptographically verifiable state transitions.
